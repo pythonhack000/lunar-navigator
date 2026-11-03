@@ -98,7 +98,7 @@ export function SitePanel({ analysis, time }: SitePanelProps) {
         />
       </div>
 
-      <HorizonChart profile={profile} timeline={timeline} state={state} />
+      <HorizonChart profile={profile} timeline={timeline} state={state} lat={site.lat} />
 
       <div className="month" data-tour="month">
         <div className="month__summary">

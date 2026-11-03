@@ -16,24 +16,27 @@ const LABEL_H = 14;
 const H = ROW_H * 2 + GAP + LABEL_H;
 const LABEL_EVERY_DAYS = 5;
 
-/** Run-length encodes a visibility series into bars, so a month needs a few dozen rects, not 700. */
+const UP = 0.5;
+
+/**
+ * Run-length encodes a visibility series into solid bars (body above the terrain or not), so a month
+ * needs a few dozen rects, not 700. Bars never overlap, so there are no darker seams between them.
+ */
 function Row({ values, y, className }: { values: Float32Array; y: number; className: string }) {
   const n = values.length;
   const bars = [];
-  let start = 0;
-  for (let i = 1; i <= n; i++) {
-    const level = Math.round(values[start] * 4);
-    if (i < n && Math.round(values[i] * 4) === level) continue;
-    if (level > 0) {
-      bars.push(
-        <rect key={start} x={(start / n) * W} y={y} width={((i - start) / n) * W + 0.5} height={ROW_H} opacity={level / 4} />,
-      );
+  let start = -1;
+  for (let i = 0; i <= n; i++) {
+    const up = i < n && values[i] >= UP;
+    if (up && start < 0) start = i;
+    if (!up && start >= 0) {
+      bars.push(<rect key={start} x={(start / n) * W} y={y} width={((i - start) / n) * W} height={ROW_H} rx={3} />);
+      start = -1;
     }
-    start = i;
   }
   return (
     <g className={className}>
-      <rect x={0} y={y} width={W} height={ROW_H} className="row-bg" />
+      <rect x={0} y={y} width={W} height={ROW_H} rx={3} className="row-bg" />
       {bars}
     </g>
   );

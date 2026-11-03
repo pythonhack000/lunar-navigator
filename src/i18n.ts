@@ -1,4 +1,4 @@
-import { useNavigator } from './state/store';
+import { useNavigator, type SiteKind } from './state/store';
 
 export type Lang = 'en' | 'ru';
 
@@ -17,8 +17,9 @@ const EN = {
   'picker.hint': 'Or click anywhere on the Moon.',
   'picker.go': 'Go',
   'picker.error': 'Latitude −90…90, longitude −180…180',
-  'site.custom': 'Custom site',
+  'site.custom': 'Scout point',
   'site.brightest': 'Brightest spot (year)',
+  'site.nearIce': 'Sunlit rim by the ice',
   'panel.compare': '+ Compare',
   'panel.inCompare': '✓ In compare',
   'panel.details': 'Month details',
@@ -75,6 +76,7 @@ const EN = {
   'layer.light': 'Sunlight',
   'layer.ice': 'Ice',
   'layer.brightest': 'Fly to the sunniest spot',
+  'layer.nearIce': 'Fly to sunlight next to ice',
   'layer.lightLegend': 'Share of the year in sunlight (approx., 1 km cells)',
   'layer.iceLegend': 'Never sunlit: cold traps where water ice can survive',
   'cal.title': 'Landing windows',
@@ -108,8 +110,9 @@ const RU: Record<StringKey, string> = {
   'picker.hint': 'Или кликните в любое место Луны.',
   'picker.go': 'Перейти',
   'picker.error': 'Широта −90…90, долгота −180…180',
-  'site.custom': 'Своя точка',
+  'site.custom': 'Точка разведки',
   'site.brightest': 'Самая светлая точка (год)',
+  'site.nearIce': 'Светлый край у льда',
   'panel.compare': '+ Сравнить',
   'panel.inCompare': '✓ В сравнении',
   'panel.details': 'Подробно за месяц',
@@ -166,6 +169,7 @@ const RU: Record<StringKey, string> = {
   'layer.light': 'Свет',
   'layer.ice': 'Лёд',
   'layer.brightest': 'Лететь к самой светлой точке',
+  'layer.nearIce': 'Лететь к свету рядом со льдом',
   'layer.lightLegend': 'Доля года на солнце (приблизительно, клетки 1 км)',
   'layer.iceLegend': 'Солнца нет никогда: холодные ловушки, где может быть лёд',
   'cal.title': 'Окна посадки',
@@ -198,8 +202,9 @@ export function useT(): Translate {
 }
 
 /** Display name of a site in the current language (unnamed places are labelled by kind). */
-export function siteLabel(site: { name: string; kind?: 'custom' | 'brightest' }, lang: Lang): string {
+export function siteLabel(site: { name: string; kind?: SiteKind }, lang: Lang): string {
   if (site.kind === 'custom') return translate(lang, 'site.custom');
   if (site.kind === 'brightest') return translate(lang, 'site.brightest');
+  if (site.kind === 'nearIce') return translate(lang, 'site.nearIce');
   return site.name;
 }

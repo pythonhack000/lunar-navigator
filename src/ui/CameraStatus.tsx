@@ -1,4 +1,5 @@
 import { useT } from '../i18n';
+import { findSunlitNearIce, findSunniest, loadLightMap, type LightMap } from '../lib/lightMap';
 import { useNavigator, type MapLayer, type ReliefScale } from '../state/store';
 
 type Props = { polarRhoMax: number };
@@ -15,32 +16,14 @@ function formatAltitude(km: number): string {
   return `${km.toFixed(1)} km`;
 }
 
-/** Finds the sunniest pixel of the annual light map and returns its latitude/longitude. */
-async function findSunniest(rhoMax: number): Promise<{ lat: number; lon: number }> {
-  const res = await fetch(LIGHT_MAP_URL);
-  if (!res.ok) throw new Error(`light map: HTTP ${res.status}`);
-  const bitmap = await createImageBitmap(await res.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
-  const canvas = document.createElement('canvas');
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) throw new Error('2D canvas is not available');
-  ctx.drawImage(bitmap, 0, 0);
-  const { data, width, height } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
-  let best = -1;
-  let bestIndex = 0;
-  for (let i = 0; i < width * height; i++) {
-    if (data[i * 4 + 2] > 127 && data[i * 4] > best) {
-      best = data[i * 4];
-      bestIndex = i;
-    }
-  }
-  const col = bestIndex % width;
-  const row = Math.floor(bestIndex / width);
-  const x = ((col + 0.5) / width * 2 - 1) * rhoMax;
-  const y = (1 - (row + 0.5) / height * 2) * rhoMax;
-  const r = Math.hypot(x, y);
-  return { lat: (2 * Math.atan(r / 2) * 180) / Math.PI - 90, lon: (Math.atan2(y, x) * 180) / Math.PI };
+let lightMap: Promise<LightMap> | null = null;
+/** Loaded once, on the first search; a failed load is retried next time. */
+function getLightMap(rhoMax: number): Promise<LightMap> {
+  lightMap ??= loadLightMap(LIGHT_MAP_URL, rhoMax).catch((err: unknown) => {
+    lightMap = null;
+    throw err;
+  });
+  return lightMap;
 }
 
 /** Controls above the 3D scene: view, live altitude, relief, map layer and language. */
@@ -53,12 +36,14 @@ export function CameraStatus({ polarRhoMax }: Props) {
   const { setRelief, setLayer, setLang, flyToSite, showWholeMoon, selectSite } = useNavigator.getState();
   const isHigh = altitude > GLOBE_ALTITUDE_KM;
 
-  const flyToSunniest = async () => {
+  const flyToSpot = async (kind: 'brightest' | 'nearIce') => {
     try {
-      const { lat, lon } = await findSunniest(polarRhoMax);
-      selectSite({ id: null, name: '', kind: 'brightest', lat, lon });
-    } catch {
-      // The layer stays on; the button can be pressed again.
+      const map = await getLightMap(polarRhoMax);
+      const { lat, lon } = kind === 'brightest' ? findSunniest(map) : findSunlitNearIce(map);
+      selectSite({ id: null, name: '', kind, lat, lon });
+    } catch (err) {
+      // The layer stays on and the button can be pressed again.
+      console.warn('Light map search failed', err);
     }
   };
 
@@ -96,11 +81,9 @@ export function CameraStatus({ polarRhoMax }: Props) {
         <div className="layer-note">
           <span className={`layer-key layer-key--${layer}`} />
           {t(layer === 'light' ? 'layer.lightLegend' : 'layer.iceLegend')}
-          {layer === 'light' && (
-            <button type="button" className="link-button" onClick={() => void flyToSunniest()}>
-              {t('layer.brightest')} →
-            </button>
-          )}
+          <button type="button" className="link-button" onClick={() => void flyToSpot(layer === 'light' ? 'brightest' : 'nearIce')}>
+            {t(layer === 'light' ? 'layer.brightest' : 'layer.nearIce')} →
+          </button>
         </div>
       )}
     </div>

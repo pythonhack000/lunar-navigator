@@ -9,7 +9,7 @@ export interface SelectedSite {
   lat: number;
   lon: number;
   /** Unnamed places get their label from the current language instead of a stored name. */
-  kind?: 'custom' | 'brightest';
+  kind?: SiteKind;
 }
 
 export type PlaybackSpeed = 1 | 6 | 24;
@@ -17,6 +17,9 @@ export type PlaybackSpeed = 1 | 6 | 24;
 export type ReliefScale = 1 | 3 | 5;
 
 export type MapLayer = 'none' | 'light' | 'ice';
+
+/** Unnamed places: clicked on the map, or found on the light map. */
+export type SiteKind = 'custom' | 'brightest' | 'nearIce';
 
 const LANG_KEY = 'lunar-lang';
 

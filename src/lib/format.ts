@@ -13,18 +13,16 @@ export function formatLatLon(lat: number, lon: number): string {
 
 const UNITS = { en: ['d', 'h', 'min'], ru: ['д', 'ч', 'мин'] } as const;
 
-/** "4 d 6 h", "5 h 12 min" or "18 min" (or the Russian units). */
+/** "4 d 6 h", "5 h 12 min" or "18 min" (or the Russian units). Rounds first, so 1 d 23.6 h is "2 d 0 h". */
 export function formatDuration(ms: number, lang: 'en' | 'ru' = 'en'): string {
   const [d, h, m] = UNITS[lang];
-  if (ms >= DAY_MS) {
-    const days = Math.floor(ms / DAY_MS);
-    return `${days} ${d} ${Math.round((ms - days * DAY_MS) / HOUR_MS)} ${h}`;
+  const minutes = Math.max(0, Math.round(ms / 60_000));
+  if (minutes >= 24 * 60) {
+    const hours = Math.round(minutes / 60);
+    return `${Math.floor(hours / 24)} ${d} ${hours % 24} ${h}`;
   }
-  if (ms >= HOUR_MS) {
-    const hours = Math.floor(ms / HOUR_MS);
-    return `${hours} ${h} ${Math.round((ms - hours * HOUR_MS) / 60_000)} ${m}`;
-  }
-  return `${Math.max(0, Math.round(ms / 60_000))} ${m}`;
+  if (minutes >= 60) return `${Math.floor(minutes / 60)} ${h} ${minutes % 60} ${m}`;
+  return `${minutes} ${m}`;
 }
 
 export const formatHours = (hours: number, lang: 'en' | 'ru' = 'en'): string => formatDuration(hours * HOUR_MS, lang);

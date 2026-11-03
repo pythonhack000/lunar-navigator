@@ -1,4 +1,4 @@
-import { memo, useId, useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import { useT } from '../i18n';
 import type { HorizonProfile } from '../lib/horizon';
 import type { SiteState, Timeline } from '../lib/visibility';
@@ -7,6 +7,8 @@ interface HorizonChartProps {
   profile: HorizonProfile;
   timeline: Timeline;
   state: SiteState;
+  /** Site latitude: fixes the top of the scale so it does not jump as the time window slides. */
+  lat: number;
 }
 
 const W = 720;
@@ -25,6 +27,8 @@ const SUN_R = 6;
 const EARTH_R = 8;
 const MIN_SPAN_DEG = 6;
 const MAX_TOP_DEG = 90;
+/** Highest the Sun (axial tilt 1.5°) or Earth (libration + orbit tilt ≈ 6.7°) can climb above 90° − |lat|. */
+const SKY_MARGIN_DEG = 7;
 
 interface Scale {
   x: (az: number) => number;
@@ -48,18 +52,26 @@ function makeScale(bottom: number, top: number): Scale {
   };
 }
 
-/** Sky positions over the coming days, as one dot per hour. */
-function TrackDots({ az, el, from, scale, className }: { az: Float32Array; el: Float32Array; from: number; scale: Scale; className: string }) {
-  const dots = [];
-  for (let i = Math.max(0, from); i < az.length; i += 2) {
-    dots.push(<circle key={i} cx={scale.x(az[i])} cy={scale.y(el[i])} r={1.2} />);
+/** Azimuth jump that means the path crossed north (0°/360°) rather than really moving that far. */
+const WRAP_JUMP_DEG = 180;
+
+/**
+ * A body's path across the sky as one smooth line. The line breaks where the azimuth wraps past
+ * north, and starts at the body's live position so it never lags behind the disc.
+ */
+export function trackPath(az: ArrayLike<number>, el: ArrayLike<number>, from: number, scale: Scale, start?: { az: number; el: number }): string {
+  const parts: string[] = [];
+  let prevAz = start?.az ?? NaN;
+  if (start) parts.push(`M${scale.x(start.az).toFixed(1)},${scale.y(start.el).toFixed(1)}`);
+  for (let i = Math.max(0, from); i < az.length; i++) {
+    const jump = Math.abs(az[i] - prevAz) > WRAP_JUMP_DEG || Number.isNaN(prevAz);
+    parts.push(`${jump ? 'M' : 'L'}${scale.x(az[i]).toFixed(1)},${scale.y(el[i]).toFixed(1)}`);
+    prevAz = az[i];
   }
-  return <g className={className}>{dots}</g>;
+  return parts.join('');
 }
 
-const MemoTrack = memo(TrackDots);
-
-export function HorizonChart({ profile, timeline, state }: HorizonChartProps) {
+export function HorizonChart({ profile, timeline, state, lat }: HorizonChartProps) {
   const t = useT();
   const clipId = useId();
   const { elevationsDeg, stepDeg } = profile;
@@ -71,8 +83,7 @@ export function HorizonChart({ profile, timeline, state }: HorizonChartProps) {
       lo = Math.min(lo, e);
       hi = Math.max(hi, e);
     }
-    for (const e of timeline.sunElevation) hi = Math.max(hi, e);
-    for (const e of timeline.earthElevation) hi = Math.max(hi, e);
+    hi = Math.max(hi, 90 - Math.abs(lat) + SKY_MARGIN_DEG);
     const bottom = Math.floor(Math.min(lo, -1) - 0.5);
     const top = Math.min(MAX_TOP_DEG, Math.max(bottom + MIN_SPAN_DEG, Math.ceil(hi + 1)));
     const s = makeScale(bottom, top);
@@ -84,9 +95,15 @@ export function HorizonChart({ profile, timeline, state }: HorizonChartProps) {
       terrainPath: `M${s.x(0)},${s.y(bottom)} L${line} L${s.x(360)},${s.y(bottom)} Z`,
       skyPath: `M${s.x(0)},${s.y(top)} L${line} L${s.x(360)},${s.y(top)} Z`,
     };
-  }, [elevationsDeg, stepDeg, timeline]);
+  }, [elevationsDeg, stepDeg, lat]);
 
-  const nowIndex = Math.round((state.time - timeline.start) / timeline.stepMs);
+  // The first sample after "now"; the live position is drawn in front of it.
+  const nextIndex = Math.max(0, Math.ceil((state.time - timeline.start) / timeline.stepMs));
+  const sunTrack = useMemo(
+    () => trackPath(timeline.sunAzimuth, timeline.sunElevation, nextIndex, scale, { az: state.sun.azDeg, el: state.sun.elDeg }),
+    [timeline, nextIndex, scale, state.sun.azDeg, state.sun.elDeg],
+  );
+  const earthTrack = useMemo(() => trackPath(timeline.earthAzimuth, timeline.earthElevation, 0, scale), [timeline, scale]);
   const plotTop = PAD.top;
   const plotBottom = PAD.top + PLOT_H;
   const clampY = (y: number) => Math.min(plotBottom - SUN_R, Math.max(plotTop + SUN_R, y));
@@ -111,8 +128,8 @@ export function HorizonChart({ profile, timeline, state }: HorizonChartProps) {
           </g>
         ))}
         <g clipPath={`url(#${clipId}-plot)`}>
-          <MemoTrack az={timeline.earthAzimuth} el={timeline.earthElevation} from={0} scale={scale} className="track track--earth" />
-          <MemoTrack az={timeline.sunAzimuth} el={timeline.sunElevation} from={nowIndex - (nowIndex % 2)} scale={scale} className="track track--sun" />
+          <path d={earthTrack} className="track track--earth" />
+          <path d={sunTrack} className="track track--sun" />
           <path d={terrainPath} className="terrain" />
         </g>
         {/* Behind the terrain: a dashed outline shows where the body is hiding. */}

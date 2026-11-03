@@ -486,15 +486,21 @@ const terrainFragment = /* glsl */ `
     surface(up, albedo, tangentNormal);
     vec3 color = shade(up, tangentNormal, albedo, sunVisibility(up), vWorldPos);
     if (layerMode > 0.5 && toMoonFixed(up).z < 0.0) {
-      vec4 light = texture2D(lightMap, polarPlane(up) / (2.0 * innerRhoMax) + 0.5);
-      if (light.b > 0.5) {
+      vec2 luv = polarPlane(up) / (2.0 * innerRhoMax) + 0.5;
+      // Only inside the map: outside it clamp-to-edge would smear the border texels into streaks
+      // running out to the limb. B is the coverage mask, so it also fades the overlay's rim softly.
+      vec2 inside = step(vec2(0.0), luv) * step(luv, vec2(1.0));
+      vec4 light = texture2D(lightMap, clamp(luv, 0.0, 1.0));
+      float rim = 1.0 - smoothstep(0.82, 1.0, length(luv - 0.5) * 2.0);
+      float cover = inside.x * inside.y * smoothstep(0.5, 1.0, light.b) * rim;
+      if (cover > 0.0) {
         if (layerMode < 1.5) {
           // Self-lit so the map reads in shadow too: deep blue (dark all year) to amber (sunny).
           vec3 heat = mix(vec3(0.04, 0.07, 0.3), vec3(1.0, 0.71, 0.28), light.r);
           heat = mix(heat, vec3(1.0, 0.96, 0.85), smoothstep(0.75, 1.0, light.r));
-          color = mix(color, heat * 1.3, 0.62);
+          color = mix(color, heat * 1.3, 0.62 * cover);
         } else {
-          color = mix(color * 0.55, vec3(0.35, 0.85, 1.0) * 1.6, light.g * 0.85);
+          color = mix(color, mix(color * 0.55, vec3(0.35, 0.85, 1.0) * 1.6, light.g * 0.85), cover);
         }
       }
     }

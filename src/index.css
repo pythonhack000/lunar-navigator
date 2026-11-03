@@ -94,8 +94,13 @@ h3 { font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 8p
 .site-panel { display: flex; flex-direction: column; gap: 14px; }
 .site-panel__head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
 .site-panel__head h2 { font-size: 20px; font-weight: 700; }
-.readouts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.readout { border: 1px solid var(--line); border-radius: 11px; padding: 11px; background: rgba(255, 255, 255, 0.02); }
+.readouts { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; row-gap: 0; }
+/* Subgrid rows line the Sun and Earth cards up line for line, whatever wraps in either one. */
+.readout {
+  display: grid; grid-row: span 5; grid-template-rows: subgrid; align-content: start;
+  border: 1px solid var(--line); border-radius: 11px; padding: 11px; background: rgba(255, 255, 255, 0.02);
+  font-variant-numeric: tabular-nums;
+}
 .readout__head { display: flex; justify-content: space-between; align-items: center; }
 .readout__title { font-weight: 700; }
 .readout--sun .readout__title { color: var(--sun); }
@@ -107,8 +112,8 @@ h3 { font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 8p
 .readout__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 0 0 8px; }
 .readout__grid dt, .month__grid dt { font-size: 10.5px; color: var(--faint); }
 .readout__grid dd, .month__grid dd { margin: 0; font-family: var(--mono); font-size: 12.5px; }
-.readout__status { font-weight: 600; font-size: 13px; }
-.readout__detail { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+.readout__status { font-weight: 600; font-size: 13px; line-height: 1.35; min-height: 2.7em; margin: 0; }
+.readout__detail { color: var(--muted); font-size: 11.5px; line-height: 1.35; margin: 2px 0 0; }
 
 .horizon-chart { margin: 0; }
 .horizon-chart svg { width: 100%; height: auto; display: block; }
@@ -116,9 +121,9 @@ h3 { font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 8p
 .horizon-chart text { fill: var(--faint); font: 10px var(--mono); }
 .horizon-chart .compass { fill: var(--muted); font-weight: 600; }
 .terrain { fill: var(--terrain); stroke: var(--terrain-edge); stroke-width: 1; }
-.track circle { opacity: 0.6; }
-.track--sun circle { fill: var(--sun); }
-.track--earth circle { fill: var(--earth); opacity: 0.35; }
+.track { fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.track--sun { stroke: var(--sun); opacity: 0.75; }
+.track--earth { stroke: var(--earth); opacity: 0.5; stroke-width: 1.2; }
 .disc--sun { fill: #fff3dc; stroke: var(--sun); stroke-width: 2; filter: drop-shadow(0 0 6px var(--sun)); }
 .disc--earth { fill: #1c3f73; stroke: var(--earth); stroke-width: 2; }
 .disc-ghost { fill: none; stroke-width: 1.5; stroke-dasharray: 3 3; opacity: 0.8; }
@@ -214,7 +219,7 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
   .compare { order: 3; overflow-x: auto; }
   .site-picker { order: 4; }
   .site-list { max-height: 320px; }
-  .readouts { grid-template-columns: 1fr; }
+  .readouts { grid-template-columns: 1fr; row-gap: 10px; }
   .month__grid { grid-template-columns: repeat(2, 1fr); }
   .timeline { grid-template-columns: 1fr; }
   .timeline__labels { flex-direction: row; gap: 14px; }

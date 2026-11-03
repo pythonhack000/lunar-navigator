@@ -220,3 +220,70 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
   .timeline__labels { flex-direction: row; gap: 14px; }
   .time-readout { margin-left: 0; width: 100%; }
 }
+
+/* Camera status */
+.altitude-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 99px;
+  background: var(--panel); border: 1px solid var(--line-strong); backdrop-filter: blur(10px);
+  font: 600 12.5px var(--mono); min-width: 92px; justify-content: center;
+}
+.altitude-chip svg { width: 11px; height: 11px; fill: var(--sun); }
+
+/* Tour spotlight */
+.tour-highlight {
+  position: relative; z-index: 5;
+  box-shadow: 0 0 0 2px var(--sun), 0 0 0 9999px rgba(0, 0, 0, 0.45) !important;
+  border-radius: var(--radius); transition: box-shadow 0.25s;
+}
+
+/* LUNA assistant */
+.luna { position: fixed; right: 430px; bottom: 170px; z-index: 30; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; pointer-events: none; }
+.luna > * { pointer-events: auto; }
+.luna-launcher {
+  width: 58px; height: 58px; border-radius: 50%; border: 1px solid var(--line-strong); cursor: pointer;
+  background: radial-gradient(circle at 35% 30%, #23262d, #0b0c0f); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); padding: 6px;
+}
+.luna-launcher:hover { border-color: var(--sun); }
+.luna-panel { width: 340px; max-height: 60vh; display: flex; flex-direction: column; gap: 10px; }
+.luna-head-row { display: flex; align-items: center; gap: 10px; }
+.luna-head-row .luna-avatar { width: 34px; height: 34px; }
+.luna-head-row > div { flex: 1; }
+.luna-avatar { width: 100%; height: 100%; display: block; }
+.luna-head { fill: #e9ebee; }
+.luna-visor { fill: #0b0c0f; }
+.luna-eye { fill: var(--sun); }
+.luna-neck { fill: #8b919a; }
+.luna-antenna { stroke: #8b919a; stroke-width: 2.5; stroke-linecap: round; }
+.luna-beacon { fill: var(--sun); }
+.luna-avatar.is-talking .luna-eye { animation: luna-blink 1.2s ease-in-out infinite; }
+.luna-avatar.is-talking .luna-beacon { animation: luna-pulse 1s ease-in-out infinite; }
+@keyframes luna-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes luna-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+@media (prefers-reduced-motion: reduce) { .luna-avatar * { animation: none !important; } }
+.luna-tour h3 { color: var(--text); font-size: 15px; margin-bottom: 6px; }
+.luna-tour p { color: var(--muted); font-size: 13px; }
+.luna-tour-nav { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.luna-tour-nav .muted { margin-right: auto; }
+.primary-button { padding: 6px 14px; border-radius: 9px; border: 0; background: var(--sun); color: #000; font-weight: 700; cursor: pointer; }
+.luna-messages { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+.luna-msg { border-radius: 11px; padding: 9px 11px; font-size: 13px; }
+.luna-msg p + p { margin-top: 5px; }
+.luna-msg--luna { background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); }
+.luna-msg--user { align-self: flex-end; background: var(--sun-soft); border: 1px solid rgba(255, 181, 71, 0.35); }
+.luna-thinking { font-size: 12px; }
+.luna-picks { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.luna-picks li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; }
+.luna-picks .link-button { color: var(--sun); font-size: 12px; }
+.mono { font-family: var(--mono); }
+.luna-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.luna-chips button {
+  font-size: 12px; padding: 5px 10px; border-radius: 99px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line-strong);
+}
+.luna-chips button:hover:not(:disabled) { border-color: var(--sun); color: var(--sun); }
+.luna-chips button:disabled { opacity: 0.4; cursor: wait; }
+@media (max-width: 960px) {
+  .luna { right: 12px; bottom: 12px; }
+  .luna-panel { width: calc(100vw - 24px); }
+  .stage-controls { flex-wrap: wrap; justify-content: center; width: calc(100% - 32px); }
+}

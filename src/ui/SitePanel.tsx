@@ -73,7 +73,7 @@ export function SitePanel({ analysis, time }: SitePanelProps) {
         </button>
       </header>
 
-      <div className="readouts">
+      <div className="readouts" data-tour="readouts">
         <Readout
           title="Sun"
           tone="sun"
@@ -92,7 +92,7 @@ export function SitePanel({ analysis, time }: SitePanelProps) {
 
       <HorizonChart profile={profile} timeline={timeline} state={state} />
 
-      <div className="month">
+      <div className="month" data-tour="month">
         <h3>Next lunar month</h3>
         <dl className="month__grid">
           <div><dt>Sunlight</dt><dd>{formatPercent(summary.sunlitShare)}</dd></div>

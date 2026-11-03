@@ -22,6 +22,13 @@ interface NavigatorState {
   compare: readonly SelectedSite[];
   /** True while the camera shows the whole Moon instead of hovering over the selected site. */
   isGlobeView: boolean;
+  /** Bumped on every fly request, so asking again for the same view still flies the camera. */
+  flyNonce: number;
+  /** Camera height above the surface, km, updated a few times a second for the HUD. */
+  cameraAltitudeKm: number;
+  flyToSite: () => void;
+  showWholeMoon: () => void;
+  setCameraAltitude: (km: number) => void;
   /** Vertical exaggeration of the 3D terrain; purely visual. */
   relief: ReliefScale;
   setRelief: (relief: ReliefScale) => void;
@@ -47,6 +54,11 @@ export const useNavigator = create<NavigatorState>((set) => ({
   site: { id: defaultSite.id, name: defaultSite.name, lat: defaultSite.lat, lon: defaultSite.lon },
   compare: [],
   isGlobeView: false,
+  flyNonce: 0,
+  cameraAltitudeKm: 4000,
+  flyToSite: () => set((s) => ({ isGlobeView: false, flyNonce: s.flyNonce + 1 })),
+  showWholeMoon: () => set((s) => ({ isGlobeView: true, flyNonce: s.flyNonce + 1 })),
+  setCameraAltitude: (cameraAltitudeKm) => set({ cameraAltitudeKm }),
   relief: 3,
   setRelief: (relief) => set({ relief }),
   setTime: (time) => set({ time }),

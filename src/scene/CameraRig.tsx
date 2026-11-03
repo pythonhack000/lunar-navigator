@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { MathUtils, PerspectiveCamera, Raycaster, Sphere, Vector2, Vector3 } from 'three';
 import { MOON_RADIUS_KM } from '../lib/ephemeris';
 import type { Terrain } from '../lib/terrain';
+import { useNavigator } from '../state/store';
 import { unitToLatLon } from '../lib/vec';
 import { fromThree, latLonToThree } from './coords';
 import {
@@ -27,6 +28,8 @@ interface CameraRigProps {
   lon: number;
   sunDir: Vector3;
   isGlobeView: boolean;
+  /** Changes on every fly request (see the store), so repeating a request still flies. */
+  flyNonce: number;
   terrain: Terrain;
   relief: number;
   /** Updated every frame with what the camera looks at. */
@@ -52,6 +55,8 @@ const CLEARANCE_M = 600;
 /** A press counts as a click, not a drag, if it moves less than this and is released quickly. */
 const CLICK_MAX_MOVE_PX = 5;
 const CLICK_MAX_MS = 450;
+/** Relative altitude change worth re-rendering the HUD for. */
+const ALTITUDE_REPORT_STEP = 0.02;
 const MOON_SPHERE = new Sphere(new Vector3(), 1);
 
 /** Radius of the drawn ground under `v`, including the visual relief exaggeration. */
@@ -69,7 +74,7 @@ function sitePose(lat: number, lon: number, sunDir: Vector3): CameraPose {
  * Google-Earth-style navigation: drag to slide the ground, right-drag or shift-drag to turn and
  * tilt, wheel or pinch to zoom. On touch: one finger slides, two fingers pinch and tilt.
  */
-export function CameraRig({ lat, lon, sunDir, isGlobeView, terrain, relief, focus, polarEdgeLat, outerEdgeLat, onPick }: CameraRigProps) {
+export function CameraRig({ lat, lon, sunDir, isGlobeView, flyNonce, terrain, relief, focus, polarEdgeLat, outerEdgeLat, onPick }: CameraRigProps) {
   // Detail stops a little inside the cap edge, so allow full zoom only once well within it.
   const polarCutY = Math.sin(((polarEdgeLat + 0.5) * Math.PI) / 180);
   const outerCutY = Math.sin((((outerEdgeLat ?? polarEdgeLat) + 0.5) * Math.PI) / 180);
@@ -95,7 +100,7 @@ export function CameraRig({ lat, lon, sunDir, isGlobeView, terrain, relief, focu
     const to = isGlobeView ? withRange(current.current, GLOBE_RANGE) : sitePose(lat, lon, sunRef.current);
     flight.current = { from, to, t: 0, seconds: flightSeconds(from, to) };
     goal.current = to;
-  }, [lat, lon, isGlobeView]);
+  }, [lat, lon, isGlobeView, flyNonce]);
 
   useEffect(() => {
     const el = gl.domElement;
@@ -222,6 +227,13 @@ export function CameraRig({ lat, lon, sunDir, isGlobeView, terrain, relief, focu
     camera.position.copy(position);
     camera.up.copy(up);
     camera.lookAt(lookAt);
+
+    // Report the altitude for the HUD only when it changes noticeably.
+    const altitudeKm = (position.length() - heightRadius(terrain, position, 1)) * MOON_RADIUS_KM;
+    const { cameraAltitudeKm, setCameraAltitude } = useNavigator.getState();
+    if (Math.abs(altitudeKm - cameraAltitudeKm) > Math.max(0.5, cameraAltitudeKm * ALTITUDE_REPORT_STEP)) {
+      setCameraAltitude(altitudeKm);
+    }
   });
 
   return null;

@@ -58,6 +58,7 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOute
   const site = useNavigator((s) => s.site);
   const compare = useNavigator((s) => s.compare);
   const isGlobeView = useNavigator((s) => s.isGlobeView);
+  const flyNonce = useNavigator((s) => s.flyNonce);
   const relief = useNavigator((s) => s.relief);
   const focus = useMemo<CameraFocus>(() => ({ target: new Vector3(0, -1, 0), range: 1 }), []);
   const lighting = useMemo<MoonLighting>(() => ({ ...BASE_LIGHTING, relief }), [relief]);
@@ -95,7 +96,7 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOute
       {others.map((c) => (
         <SiteMarker key={siteKey(c)} lat={c.lat} lon={c.lon} label={c.name} isPrimary={false} />
       ))}
-      <CameraRig lat={site.lat} lon={site.lon} sunDir={sky.sunDir} isGlobeView={isGlobeView} terrain={terrain} relief={relief} focus={focus} polarEdgeLat={polar.edgeLat} outerEdgeLat={polarOuter?.edgeLat} onPick={onPick} />
+      <CameraRig lat={site.lat} lon={site.lon} sunDir={sky.sunDir} isGlobeView={isGlobeView} flyNonce={flyNonce} terrain={terrain} relief={relief} focus={focus} polarEdgeLat={polar.edgeLat} outerEdgeLat={polarOuter?.edgeLat} onPick={onPick} />
       <EffectComposer>
         <Bloom intensity={0.9} luminanceThreshold={0.95} luminanceSmoothing={0.2} mipmapBlur />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />

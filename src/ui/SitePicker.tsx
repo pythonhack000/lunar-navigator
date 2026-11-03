@@ -52,7 +52,7 @@ export function SitePicker() {
   const currentKey = siteKey(site);
 
   return (
-    <section className="panel site-picker" aria-label="Landing sites">
+    <section className="panel site-picker" aria-label="Landing sites" data-tour="sites">
       <input
         className="search"
         type="search"

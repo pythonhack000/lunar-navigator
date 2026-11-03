@@ -92,7 +92,7 @@ export function HorizonChart({ profile, timeline, state }: HorizonChartProps) {
   const earthY = clampY(scale.y(state.earth.elDeg));
 
   return (
-    <figure className="horizon-chart">
+    <figure className="horizon-chart" data-tour="horizon">
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Terrain horizon with the paths of the Sun and Earth">
         <defs>
           <clipPath id={clipId}>

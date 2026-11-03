@@ -3,7 +3,9 @@ import { useSiteAnalysis, windowStartFor } from './hooks/useSiteAnalysis';
 import { useThrottledTime } from './hooks/useThrottledTime';
 import { loadTerrain, type LoadedTerrain } from './lib/loadTerrain';
 import { MoonScene } from './scene/MoonScene';
-import { useNavigator, type ReliefScale } from './state/store';
+import { useNavigator } from './state/store';
+import { Assistant } from './ui/Assistant';
+import { CameraStatus } from './ui/CameraStatus';
 import { ComparePanel } from './ui/ComparePanel';
 import { SceneErrorBoundary } from './ui/SceneErrorBoundary';
 import { SitePanel } from './ui/SitePanel';
@@ -13,17 +15,12 @@ import { TimelineBar } from './ui/TimelineBar';
 
 type Props = { loaded: LoadedTerrain };
 
-const RELIEF_OPTIONS: ReliefScale[] = [1, 3, 5];
 
 function Navigator({ loaded }: Props) {
   const time = useThrottledTime();
   const site = useNavigator((s) => s.site);
   const setTime = useNavigator((s) => s.setTime);
   const selectSite = useNavigator((s) => s.selectSite);
-  const isGlobeView = useNavigator((s) => s.isGlobeView);
-  const setGlobeView = useNavigator((s) => s.setGlobeView);
-  const relief = useNavigator((s) => s.relief);
-  const setRelief = useNavigator((s) => s.setRelief);
   const analysis = useSiteAnalysis(loaded.terrain, site.lat, site.lon, time);
   const handlePick = useCallback(
     (lat: number, lon: number) => selectSite({ id: null, name: 'Custom site', lat, lon }),
@@ -42,19 +39,7 @@ function Navigator({ loaded }: Props) {
             onPick={handlePick}
           />
         </SceneErrorBoundary>
-        <div className="stage-controls">
-          <button type="button" className="view-toggle" onClick={() => setGlobeView(!isGlobeView)}>
-            {isGlobeView ? 'Fly to site' : 'Whole Moon'}
-          </button>
-          <div className="segmented relief-control" role="group" aria-label="Relief exaggeration">
-            <span>Relief</span>
-            {RELIEF_OPTIONS.map((r) => (
-              <button key={r} type="button" className={r === relief ? 'is-active' : undefined} aria-pressed={r === relief} onClick={() => setRelief(r)}>
-                {r}×
-              </button>
-            ))}
-          </div>
-        </div>
+        <CameraStatus />
       </div>
       <div className="hud">
         <header className="brand">
@@ -64,7 +49,8 @@ function Navigator({ loaded }: Props) {
         <SitePicker />
         <SitePanel analysis={analysis} time={time} />
         <ComparePanel terrain={loaded.terrain} windowStart={windowStartFor(time)} />
-        <footer className="panel dock">
+        <Assistant analysis={analysis} terrain={loaded.terrain} windowStart={windowStartFor(time)} />
+        <footer className="panel dock" data-tour="timeline">
           <TimeControls />
           <TimelineBar timeline={analysis.timeline} time={time} onSeek={setTime} />
         </footer>

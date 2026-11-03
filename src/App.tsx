@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSiteAnalysis, windowStartFor } from './hooks/useSiteAnalysis';
+import { translate } from './i18n';
 import { useThrottledTime } from './hooks/useThrottledTime';
 import { loadTerrain, type LoadedTerrain } from './lib/loadTerrain';
 import { MoonScene } from './scene/MoonScene';
@@ -22,9 +23,10 @@ function Navigator({ loaded }: Props) {
   const setTime = useNavigator((s) => s.setTime);
   const selectSite = useNavigator((s) => s.selectSite);
   const analysis = useSiteAnalysis(loaded.terrain, site.lat, site.lon, time);
+  const lang = useNavigator((s) => s.lang);
   const handlePick = useCallback(
-    (lat: number, lon: number) => selectSite({ id: null, name: 'Custom site', lat, lon }),
-    [selectSite],
+    (lat: number, lon: number) => selectSite({ id: null, name: translate(lang, 'site.custom'), lat, lon }),
+    [selectSite, lang],
   );
 
   return (
@@ -40,12 +42,12 @@ function Navigator({ loaded }: Props) {
             onPick={handlePick}
           />
         </SceneErrorBoundary>
-        <CameraStatus />
+        <CameraStatus polarRhoMax={loaded.manifest.polar.rhoMax} />
       </div>
       <div className="hud">
         <header className="brand">
-          <h1>Lunar Site Navigator</h1>
-          <p>Sun and Earth above the real lunar horizon</p>
+          <h1>{translate(lang, 'brand.title')}</h1>
+          <p>{translate(lang, 'brand.subtitle')}</p>
         </header>
         <SitePicker />
         <SitePanel analysis={analysis} time={time} />
@@ -67,6 +69,7 @@ function errorMessage(error: unknown): string {
 export default function App() {
   const [loaded, setLoaded] = useState<LoadedTerrain | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const lang = useNavigator((s) => s.lang);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,17 +84,17 @@ export default function App() {
   if (error) {
     return (
       <div className="splash" role="alert">
-        <h1>Lunar Site Navigator</h1>
-        <p>Could not load the LOLA terrain: {error}</p>
-        <button type="button" className="ghost-button" onClick={() => window.location.reload()}>Try again</button>
+        <h1>{translate(lang, 'brand.title')}</h1>
+        <p>{translate(lang, 'loadError', { e: error })}</p>
+        <button type="button" className="ghost-button" onClick={() => window.location.reload()}>{translate(lang, 'retry')}</button>
       </div>
     );
   }
   if (!loaded) {
     return (
       <div className="splash" aria-busy="true">
-        <h1>Lunar Site Navigator</h1>
-        <p>Loading LOLA terrain…</p>
+        <h1>{translate(lang, 'brand.title')}</h1>
+        <p>{translate(lang, 'loading')}</p>
       </div>
     );
   }

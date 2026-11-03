@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useT, type StringKey } from '../i18n';
 import { WINDOW_MS } from '../hooks/useSiteAnalysis';
 import { formatHours, formatPercent, HOUR_MS } from '../lib/format';
 import { computeHorizon } from '../lib/horizon';
@@ -16,13 +17,13 @@ interface Row {
   summary: TimelineSummary;
 }
 
-type Metric = { key: keyof TimelineSummary; label: string; better: 'high' | 'low'; format: (v: number) => string };
+type Metric = { key: keyof TimelineSummary; label: StringKey; better: 'high' | 'low'; isDuration?: boolean };
 
 const METRICS: Metric[] = [
-  { key: 'sunlitShare', label: 'Sunlight', better: 'high', format: formatPercent },
-  { key: 'earthShare', label: 'Earth', better: 'high', format: formatPercent },
-  { key: 'bothShare', label: 'Both', better: 'high', format: formatPercent },
-  { key: 'longestDarkHours', label: 'Longest night', better: 'low', format: (v) => (v > 0 ? formatHours(v) : '—') },
+  { key: 'sunlitShare', label: 'sunlight', better: 'high' },
+  { key: 'earthShare', label: 'compare.earth', better: 'high' },
+  { key: 'bothShare', label: 'compare.both', better: 'high' },
+  { key: 'longestDarkHours', label: 'night', better: 'low', isDuration: true },
 ];
 
 function summarize(terrain: Terrain, site: SelectedSite, windowStart: number): TimelineSummary {
@@ -41,6 +42,9 @@ export function ComparePanel({ terrain, windowStart }: ComparePanelProps) {
   const compare = useNavigator((s) => s.compare);
   const selectSite = useNavigator((s) => s.selectSite);
   const toggleCompare = useNavigator((s) => s.toggleCompare);
+  const lang = useNavigator((s) => s.lang);
+  const t = useT();
+  const show = (m: Metric, v: number) => (m.isDuration ? (v > 0 ? formatHours(v, lang) : '—') : formatPercent(v));
 
   const sites = useMemo(() => {
     const current = compare.some((c) => siteKey(c) === siteKey(site));
@@ -57,12 +61,12 @@ export function ComparePanel({ terrain, windowStart }: ComparePanelProps) {
 
   return (
     <section className="panel compare" aria-label="Site comparison">
-      <h3>Compare · next lunar month</h3>
+      <h3>{t('compare.title')}</h3>
       <table>
         <thead>
           <tr>
-            <th scope="col">Site</th>
-            {METRICS.map((m) => <th key={m.key} scope="col">{m.label}</th>)}
+            <th scope="col">{t('compare.site')}</th>
+            {METRICS.map((m) => <th key={m.key} scope="col">{t(m.label)}</th>)}
             <th aria-label="Remove" />
           </tr>
         </thead>
@@ -78,11 +82,11 @@ export function ComparePanel({ terrain, windowStart }: ComparePanelProps) {
                 {METRICS.map((m) => {
                   const v = r.summary[m.key];
                   const best = rows.length > 1 && v === bestValue(rows, m);
-                  return <td key={m.key} className={best ? 'is-best' : undefined}>{m.format(v)}</td>;
+                  return <td key={m.key} className={best ? 'is-best' : undefined}>{show(m, v)}</td>;
                 })}
                 <td>
                   {listed && (
-                    <button type="button" className="icon-button" aria-label={`Remove ${r.site.name}`} onClick={() => toggleCompare(r.site)}>
+                    <button type="button" className="icon-button" aria-label={t('compare.remove', { name: r.site.name })} onClick={() => toggleCompare(r.site)}>
                       ×
                     </button>
                   )}

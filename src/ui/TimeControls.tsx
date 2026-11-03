@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
+import { useT, type StringKey } from '../i18n';
 import { formatUtc, fromDateTimeInput, HOUR_MS, toDateTimeInput } from '../lib/format';
 import { useThrottledTime } from '../hooks/useThrottledTime';
 import { useNavigator, type PlaybackSpeed } from '../state/store';
 
-const SPEEDS: { value: PlaybackSpeed; label: string }[] = [
-  { value: 1, label: '1 h/s' },
-  { value: 6, label: '6 h/s' },
-  { value: 24, label: '1 d/s' },
+const SPEEDS: { value: PlaybackSpeed; label: StringKey }[] = [
+  { value: 1, label: 'speed.1' },
+  { value: 6, label: 'speed.6' },
+  { value: 24, label: 'speed.24' },
 ];
 
 /** Advances the simulated clock while playing. */
@@ -29,6 +30,7 @@ function usePlayback() {
 }
 
 export function TimeControls() {
+  const t = useT();
   usePlayback();
   const time = useThrottledTime();
   const playing = useNavigator((s) => s.playing);
@@ -46,7 +48,7 @@ export function TimeControls() {
         type="button"
         className="play-button"
         onClick={() => setPlaying(!playing)}
-        aria-label={playing ? 'Pause' : 'Play'}
+        aria-label={playing ? t('pause') : t('play')}
       >
         {playing ? (
           <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="2" width="3.5" height="12" rx="1" /><rect x="9.5" y="2" width="3.5" height="12" rx="1" /></svg>
@@ -63,7 +65,7 @@ export function TimeControls() {
             aria-pressed={s.value === speed}
             onClick={() => setSpeed(s.value)}
           >
-            {s.label}
+            {t(s.label)}
           </button>
         ))}
       </div>
@@ -73,7 +75,7 @@ export function TimeControls() {
         <span className="date-field__zone">UTC</span>
       </label>
       <button type="button" className="ghost-button" onClick={() => setTime(Math.floor(Date.now() / HOUR_MS) * HOUR_MS)}>
-        Now
+        {t('now')}
       </button>
       <span className="time-readout" aria-live="off">{formatUtc(time)}</span>
     </div>

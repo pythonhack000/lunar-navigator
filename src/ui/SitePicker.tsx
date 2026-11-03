@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { SITES, type SiteGroup } from '../data/sites';
+import { useT } from '../i18n';
 import { siteKey, useNavigator } from '../state/store';
 
-const GROUPS: SiteGroup[] = ['South pole', 'Apollo', 'Robotic landers'];
+const GROUPS: SiteGroup[] = ['Artemis III', 'South pole', 'Robotic landers', 'Apollo'];
 
 function parseCoordinate(value: string, limit: number): number | null {
   const n = Number(value.trim());
@@ -10,6 +11,7 @@ function parseCoordinate(value: string, limit: number): number | null {
 }
 
 function CustomSiteForm() {
+  const t = useT();
   const selectSite = useNavigator((s) => s.selectSite);
   const [lat, setLat] = useState('');
   const [lon, setLon] = useState('');
@@ -20,11 +22,11 @@ function CustomSiteForm() {
     const la = parseCoordinate(lat, 90);
     const lo = parseCoordinate(lon, 180);
     if (la === null || lo === null) {
-      setError('Latitude −90…90, longitude −180…180');
+      setError(t('picker.error'));
       return;
     }
     setError(null);
-    selectSite({ id: null, name: 'Custom site', lat: la, lon: lo });
+    selectSite({ id: null, name: t('site.custom'), lat: la, lon: lo });
   };
 
   return (
@@ -37,57 +39,69 @@ function CustomSiteForm() {
         <span>Lon</span>
         <input inputMode="decimal" placeholder="-137.0" value={lon} onChange={(e) => setLon(e.target.value)} />
       </label>
-      <button type="submit" className="ghost-button">Go</button>
+      <button type="submit" className="ghost-button">{t('picker.go')}</button>
       {error && <p className="form-error" role="alert">{error}</p>}
     </form>
   );
 }
 
+/** Site list: only the group holding the selected site starts open, so the panel stays calm. */
 export function SitePicker() {
+  const t = useT();
+  const lang = useNavigator((s) => s.lang);
   const site = useNavigator((s) => s.site);
   const selectSite = useNavigator((s) => s.selectSite);
   const [query, setQuery] = useState('');
+  const currentGroup = SITES.find((s) => s.id === site.id)?.group ?? 'Artemis III';
+  const [openGroups, setOpenGroups] = useState<ReadonlySet<SiteGroup>>(() => new Set([currentGroup]));
   const q = query.trim().toLowerCase();
-  const matches = SITES.filter((s) => !q || `${s.name} ${s.note}`.toLowerCase().includes(q));
+  const matches = SITES.filter((s) => !q || `${s.name} ${s.note} ${s.noteRu}`.toLowerCase().includes(q));
   const currentKey = siteKey(site);
 
+  const toggle = (g: SiteGroup) =>
+    setOpenGroups((open) => {
+      const next = new Set(open);
+      if (next.has(g)) next.delete(g);
+      else next.add(g);
+      return next;
+    });
+
   return (
-    <section className="panel site-picker" aria-label="Landing sites" data-tour="sites">
-      <input
-        className="search"
-        type="search"
-        placeholder="Search landing sites"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        aria-label="Search landing sites"
-      />
+    <section className="panel site-picker" aria-label={t('picker.search')} data-tour="sites">
+      <input className="search" type="search" placeholder={t('picker.search')} value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t('picker.search')} />
       <div className="site-list">
         {GROUPS.map((group) => {
           const items = matches.filter((s) => s.group === group);
           if (items.length === 0) return null;
+          const isOpen = q !== '' || openGroups.has(group);
           return (
             <div key={group} className="site-group">
-              <h3>{group}</h3>
-              {items.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  className={siteKey(s) === currentKey ? 'site-item is-active' : 'site-item'}
-                  onClick={() => selectSite({ id: s.id, name: s.name, lat: s.lat, lon: s.lon })}
-                >
-                  <span className="site-item__name">{s.name}</span>
-                  <span className="site-item__note">{s.note}</span>
-                </button>
-              ))}
+              <button type="button" className="group-toggle" aria-expanded={isOpen} onClick={() => toggle(group)}>
+                <span>{t(`group.${group}`)}</span>
+                <span className="group-count">{items.length}</span>
+                <span className="chevron" aria-hidden="true">{isOpen ? '▾' : '▸'}</span>
+              </button>
+              {isOpen &&
+                items.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={siteKey(s) === currentKey ? 'site-item is-active' : 'site-item'}
+                    onClick={() => selectSite({ id: s.id, name: s.name, lat: s.lat, lon: s.lon })}
+                  >
+                    <span className="site-item__name">{s.name}</span>
+                    <span className="site-item__note">{lang === 'ru' ? s.noteRu : s.note}</span>
+                  </button>
+                ))}
             </div>
           );
         })}
       </div>
-      <div className="custom-site">
-        <h3>Custom coordinates</h3>
-        <p className="hint">Or click anywhere on the Moon.</p>
+      <details className="custom-site">
+        <summary>{t('picker.custom')}</summary>
+        <p className="hint">{t('picker.hint')}</p>
         <CustomSiteForm />
-      </div>
+      </details>
     </section>
   );
 }

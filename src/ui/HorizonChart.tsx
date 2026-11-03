@@ -1,4 +1,5 @@
 import { memo, useId, useMemo } from 'react';
+import { useT } from '../i18n';
 import type { HorizonProfile } from '../lib/horizon';
 import type { SiteState, Timeline } from '../lib/visibility';
 
@@ -59,6 +60,7 @@ function TrackDots({ az, el, from, scale, className }: { az: Float32Array; el: F
 const MemoTrack = memo(TrackDots);
 
 export function HorizonChart({ profile, timeline, state }: HorizonChartProps) {
+  const t = useT();
   const clipId = useId();
   const { elevationsDeg, stepDeg } = profile;
 
@@ -125,9 +127,9 @@ export function HorizonChart({ profile, timeline, state }: HorizonChartProps) {
         ))}
       </svg>
       <figcaption>
-        <span className="legend legend--sun">Sun path, next days</span>
-        <span className="legend legend--earth">Earth path</span>
-        <span className="legend legend--terrain">LOLA terrain horizon</span>
+        <span className="legend legend--sun">{t('legend.sunPath')}</span>
+        <span className="legend legend--earth">{t('legend.earthPath')}</span>
+        <span className="legend legend--terrain">{t('legend.terrain')}</span>
       </figcaption>
     </figure>
   );

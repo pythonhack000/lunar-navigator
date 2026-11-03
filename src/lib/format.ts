@@ -11,20 +11,23 @@ export function formatLatLon(lat: number, lon: number): string {
   return `${Math.abs(lat).toFixed(2)}° ${ns}, ${Math.abs(lon).toFixed(2)}° ${ew}`;
 }
 
-/** "4 d 6 h", "5 h 12 min" or "18 min". */
-export function formatDuration(ms: number): string {
+const UNITS = { en: ['d', 'h', 'min'], ru: ['д', 'ч', 'мин'] } as const;
+
+/** "4 d 6 h", "5 h 12 min" or "18 min" (or the Russian units). */
+export function formatDuration(ms: number, lang: 'en' | 'ru' = 'en'): string {
+  const [d, h, m] = UNITS[lang];
   if (ms >= DAY_MS) {
-    const d = Math.floor(ms / DAY_MS);
-    return `${d} d ${Math.round((ms - d * DAY_MS) / HOUR_MS)} h`;
+    const days = Math.floor(ms / DAY_MS);
+    return `${days} ${d} ${Math.round((ms - days * DAY_MS) / HOUR_MS)} ${h}`;
   }
   if (ms >= HOUR_MS) {
-    const h = Math.floor(ms / HOUR_MS);
-    return `${h} h ${Math.round((ms - h * HOUR_MS) / 60_000)} min`;
+    const hours = Math.floor(ms / HOUR_MS);
+    return `${hours} ${h} ${Math.round((ms - hours * HOUR_MS) / 60_000)} ${m}`;
   }
-  return `${Math.max(0, Math.round(ms / 60_000))} min`;
+  return `${Math.max(0, Math.round(ms / 60_000))} ${m}`;
 }
 
-export const formatHours = (hours: number): string => formatDuration(hours * HOUR_MS);
+export const formatHours = (hours: number, lang: 'en' | 'ru' = 'en'): string => formatDuration(hours * HOUR_MS, lang);
 
 export function formatUtc(time: number): string {
   return `${new Date(time).toISOString().slice(0, 16).replace('T', ' ')} UTC`;

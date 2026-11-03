@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { BackSide, DataTexture, FrontSide, PlaneGeometry, ShaderMaterial, Vector2, Vector4, type IUniform, type Texture, type Vector3 } from 'three';
 import { MOON_RADIUS_KM } from '../lib/ephemeris';
 import type { PolarTile, TileGridSpec } from '../lib/loadTerrain';
+import { useNavigator } from '../state/store';
 import { loadAtlas, tileIndex, type DetailAtlas } from './detailAtlas';
 import { clipmapLevels, finestLevelFor, GRID_CELLS } from './clipmap';
 import { fromThree } from './coords';
@@ -45,6 +46,7 @@ const DETAIL_CELLS_KM: [number, number, number] = [0.6, 0.2, 0.07];
 const DETAIL_STRENGTH = 0.22;
 /** Stream detail tiles only once the camera is within ~870 km of the ground. */
 const ATLAS_RANGE = 0.5;
+const LAYER_MODES = { none: 0, light: 1, ice: 2 } as const;
 /** Bound until the first atlas arrives; hasAtlas = 0 keeps the shader from reading it. */
 const EMPTY_TEXTURE = new DataTexture(new Uint8Array(4), 1, 1);
 EMPTY_TEXTURE.needsUpdate = true;
@@ -115,6 +117,7 @@ export function Terrain({ sunDir, earthDir, heightRange, polar, polarOuter, tile
   const innerSet = useTexture(tileUrls(polar.name), prepareTerrainSet);
   // Without an outer ring the inner tile's textures stand in, switched off by hasOuter.
   const outerSet = useTexture(tileUrls((polarOuter ?? polar).name), prepareTerrainSet);
+  const lightMap = useTexture(textureUrl('south_light_512.png'));
   const outer = polarOuter ?? polar;
   const coverRho = outer.rhoMax;
 
@@ -165,13 +168,15 @@ export function Terrain({ sunDir, earthDir, heightRange, polar, polarOuter, tile
       atlasSpan: { value: 1 },
       atlasHeightSize: { value: 1 },
       hasAtlas: { value: 0 },
+      lightMap: { value: lightMap },
+      layerMode: { value: 0 },
     };
     return {
       shared,
       globe: makeLevels(GLOBE_LEVELS, shared, globeVertexShader, globeFragmentShader, true),
       polarMeshes: makeLevels(POLAR_LEVELS, shared, polarVertexShader, polarFragmentShader, false),
     };
-  }, [globalSet, innerSet, outerSet, heightRange, polar, polarOuter, outer, sunDir, earthDir, lighting]);
+  }, [globalSet, innerSet, outerSet, lightMap, heightRange, polar, polarOuter, outer, sunDir, earthDir, lighting]);
 
   // Streams the 3x3 block of LOLA detail tiles around the focus; swaps it in only once loaded.
   const atlas = useRef<{ current: DetailAtlas | null; loading: string | null }>({ current: null, loading: null });
@@ -220,6 +225,7 @@ export function Terrain({ sunDir, earthDir, heightRange, polar, polarOuter, tile
     const lon = Math.atan2(y, x);
     const lat = Math.asin(Math.max(-1, Math.min(1, z)));
     updateAtlas(lon, lat);
+    shared.layerMode.value = LAYER_MODES[useNavigator.getState().layer];
     const globeTopLon = Math.floor((lon - Math.PI) / GLOBE_TOP_CELL) * GLOBE_TOP_CELL;
     applyLevels(globe, lon, lat, GLOBE_TOP_CELL / 2 ** (GLOBE_LEVELS - 1), focus.range, [globeTopLon, -Math.PI / 2]);
 

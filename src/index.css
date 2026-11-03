@@ -287,3 +287,54 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
   .luna-panel { width: calc(100vw - 24px); }
   .stage-controls { flex-wrap: wrap; justify-content: center; width: calc(100% - 32px); }
 }
+
+/* Minimal panels: collapsible groups and details */
+.group-toggle { all: unset; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 2px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.group-toggle:hover { color: var(--text); }
+.group-count { font: 500 10.5px var(--mono); color: var(--faint); }
+.chevron { margin-left: auto; }
+.custom-site summary { cursor: pointer; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.custom-site[open] summary { margin-bottom: 8px; }
+.month__summary { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.month__summary b { color: var(--text); font-family: var(--mono); font-size: 15px; }
+.month__actions { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.month__grid { margin-top: 10px; grid-template-columns: repeat(2, 1fr); }
+.ghost-button.is-on { border-color: var(--sun); color: var(--sun); }
+.readout__grid { margin: 8px 0 0; opacity: 0.85; }
+
+/* Stage controls: two rows on narrow screens */
+.stage-controls { flex-direction: column; align-items: center; }
+.stage-controls__row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.pill-group { align-items: center; padding: 3px 4px 3px 12px; border-radius: 99px; background: var(--panel); border: 1px solid var(--line-strong); backdrop-filter: blur(10px); }
+.pill-group span { font-size: 12px; color: var(--muted); margin-right: 4px; }
+.pill-group button { border-radius: 99px; padding: 3px 9px; }
+.lang-toggle { font: 700 12px var(--mono); padding: 7px 11px; }
+.layer-note { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); padding: 5px 12px; border-radius: 99px; background: var(--panel); border: 1px solid var(--line); }
+.layer-note .link-button { color: var(--sun); }
+.layer-key { width: 42px; height: 8px; border-radius: 4px; }
+.layer-key--light { background: linear-gradient(90deg, #0a1250, #ffb547, #fff4d9); }
+.layer-key--ice { background: #59d9ff; }
+
+/* Landing calendar */
+.modal-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.55); display: grid; place-items: center; padding: 16px; }
+.calendar { width: min(520px, 100%); max-height: 88vh; display: flex; flex-direction: column; gap: 10px; background: #0b0c0f; }
+.calendar__head { display: flex; justify-content: space-between; align-items: center; }
+.calendar__head h2 { font-size: 17px; }
+.calendar__nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 600; text-transform: capitalize; }
+.calendar__legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11.5px; color: var(--muted); }
+.cal-key::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.cal-key--both::before, .cal-cell--both { background: #fff1cf; fill: #fff1cf; }
+.cal-key--sun::before, .cal-cell--sun { background: #b97c22; fill: #b97c22; }
+.cal-key--earth::before, .cal-cell--earth { background: #2f5d99; fill: #2f5d99; }
+.cal-key--none::before, .cal-cell--none { background: #1a1c21; fill: #1a1c21; }
+.cal-cell { cursor: pointer; }
+.cal-cell:hover { fill: var(--sun); }
+.calendar__grid { overflow: auto; }
+.cal-label { fill: var(--faint); font: 9px var(--mono); }
+.cal-label.is-month { fill: var(--text); font-weight: 600; }
+
+/* LUNA extras */
+.luna-msg .is-typing p:last-child::after { content: '▍'; color: var(--sun); animation: luna-blink 0.8s steps(2) infinite; }
+.luna-add { font-size: 12px; color: var(--sun); margin-top: 8px; }
+.icon-button.is-on { color: var(--sun); }
+.luna-panel { max-height: 52vh; width: 330px; }

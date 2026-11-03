@@ -406,6 +406,10 @@ const terrainFragment = /* glsl */ `
   uniform sampler2D outerColorMap;
   uniform sampler2D outerNormalMap;
   uniform sampler2D atlasNormalMap;
+  /** Annual sunlight (R), permanent shadow (G) and coverage (B) south of 80° S; see make_illumination.py. */
+  uniform sampler2D lightMap;
+  /** 0 terrain only, 1 sunlight heat map, 2 permanent shadow (ice). */
+  uniform float layerMode;
   uniform float sunRadius;
   uniform vec4 holeRect;
   uniform float hasHole;
@@ -480,7 +484,21 @@ const terrainFragment = /* glsl */ `
     vec3 albedo;
     vec3 tangentNormal;
     surface(up, albedo, tangentNormal);
-    gl_FragColor = vec4(shade(up, tangentNormal, albedo, sunVisibility(up), vWorldPos), 1.0);
+    vec3 color = shade(up, tangentNormal, albedo, sunVisibility(up), vWorldPos);
+    if (layerMode > 0.5 && toMoonFixed(up).z < 0.0) {
+      vec4 light = texture2D(lightMap, polarPlane(up) / (2.0 * innerRhoMax) + 0.5);
+      if (light.b > 0.5) {
+        if (layerMode < 1.5) {
+          // Self-lit so the map reads in shadow too: deep blue (dark all year) to amber (sunny).
+          vec3 heat = mix(vec3(0.04, 0.07, 0.3), vec3(1.0, 0.71, 0.28), light.r);
+          heat = mix(heat, vec3(1.0, 0.96, 0.85), smoothstep(0.75, 1.0, light.r));
+          color = mix(color, heat * 1.3, 0.62);
+        } else {
+          color = mix(color * 0.55, vec3(0.35, 0.85, 1.0) * 1.6, light.g * 0.85);
+        }
+      }
+    }
+    gl_FragColor = vec4(color, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }

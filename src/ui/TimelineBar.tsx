@@ -1,4 +1,5 @@
 import { memo, useRef, type PointerEvent } from 'react';
+import { useT } from '../i18n';
 import { DAY_MS, formatShortDate } from '../lib/format';
 import type { Timeline } from '../lib/visibility';
 
@@ -61,6 +62,7 @@ function DayTicks({ timeline }: { timeline: Timeline }) {
 const MemoTicks = memo(DayTicks);
 
 export function TimelineBar({ timeline, time, onSeek }: TimelineBarProps) {
+  const t = useT();
   const svgRef = useRef<SVGSVGElement>(null);
   const span = (timeline.sun.length - 1) * timeline.stepMs;
   const cursorX = ((time - timeline.start) / span) * W;
@@ -75,8 +77,8 @@ export function TimelineBar({ timeline, time, onSeek }: TimelineBarProps) {
   return (
     <div className="timeline">
       <div className="timeline__labels" aria-hidden="true">
-        <span className="legend legend--sun">Sunlight</span>
-        <span className="legend legend--earth">Earth in view</span>
+        <span className="legend legend--sun">{t('sunlight')}</span>
+        <span className="legend legend--earth">{t('earthView')}</span>
       </div>
       <svg
         ref={svgRef}

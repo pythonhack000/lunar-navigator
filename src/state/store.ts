@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { DEFAULT_SITE_ID, SITES } from '../data/sites';
+import type { Lang } from '../i18n';
 
 export interface SelectedSite {
   /** Id of a named site, or null for a custom pin. */
@@ -12,6 +13,20 @@ export interface SelectedSite {
 export type PlaybackSpeed = 1 | 6 | 24;
 
 export type ReliefScale = 1 | 3 | 5;
+
+export type MapLayer = 'none' | 'light' | 'ice';
+
+const LANG_KEY = 'lunar-lang';
+
+function initialLang(): Lang {
+  try {
+    const saved = window.localStorage.getItem(LANG_KEY);
+    if (saved === 'en' || saved === 'ru') return saved;
+  } catch {
+    // Storage blocked: fall back to the browser language.
+  }
+  return typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('ru') ? 'ru' : 'en';
+}
 
 interface NavigatorState {
   time: number;
@@ -32,6 +47,11 @@ interface NavigatorState {
   /** Vertical exaggeration of the 3D terrain; purely visual. */
   relief: ReliefScale;
   setRelief: (relief: ReliefScale) => void;
+  lang: Lang;
+  setLang: (lang: Lang) => void;
+  /** Overlay on the south polar terrain: annual sunlight or permanent shadow (ice). */
+  layer: MapLayer;
+  setLayer: (layer: MapLayer) => void;
   setTime: (time: number) => void;
   setGlobeView: (isGlobeView: boolean) => void;
   setPlaying: (playing: boolean) => void;
@@ -61,6 +81,17 @@ export const useNavigator = create<NavigatorState>((set) => ({
   setCameraAltitude: (cameraAltitudeKm) => set({ cameraAltitudeKm }),
   relief: 3,
   setRelief: (relief) => set({ relief }),
+  lang: initialLang(),
+  setLang: (lang) => {
+    try {
+      window.localStorage.setItem(LANG_KEY, lang);
+    } catch {
+      // Not persisted; the choice still applies for this visit.
+    }
+    set({ lang });
+  },
+  layer: 'none',
+  setLayer: (layer) => set({ layer }),
   setTime: (time) => set({ time }),
   setGlobeView: (isGlobeView) => set({ isGlobeView }),
   setPlaying: (playing) => set({ playing }),

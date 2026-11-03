@@ -37,7 +37,7 @@ describe('polar grid', () => {
 
   test('is preferred by the terrain south of the edge', () => {
     const flat: DemGrid = { width: 4, height: 2, pixelsPerDegree: 4 / 360, latTop: 90, data: new Int16Array(8) };
-    const terrain = createTerrain(flat, [], quadrantGrid());
+    const terrain = createTerrain(flat, [], [quadrantGrid()]);
     expect(terrain.heightAt(-85, 0)).toBeGreaterThan(900);
     expect(terrain.heightAt(-70, 0)).toBe(0);
   });

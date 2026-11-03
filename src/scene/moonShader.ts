@@ -327,6 +327,7 @@ export const polarFragmentShader = /* glsl */ `
   uniform sampler2D colorMap;
   uniform sampler2D normalMap;
   uniform float rhoEdge;
+  uniform float innerRho;
   uniform float sunRadius;
 
   varying vec2 vXY;
@@ -381,7 +382,8 @@ export const polarFragmentShader = /* glsl */ `
   }
 
   void main() {
-    if (length(vXY) > rhoEdge) discard; // the global sphere draws beyond the edge
+    float r = length(vXY);
+    if (r > rhoEdge || r < innerRho) discard; // a coarser mesh draws outside, a finer tile inside
     vec3 up = normalize(vUp);
     vec2 uv = polarUv(vXY);
     vec3 albedo = texture2D(colorMap, uv).rgb;

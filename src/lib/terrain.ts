@@ -36,13 +36,15 @@ const coversLat = (grid: DemGrid, latDeg: number): boolean =>
   latDeg <= grid.latTop && latDeg >= grid.latTop - grid.height / grid.pixelsPerDegree;
 
 /**
- * The most detailed source that covers each point: the polar stereographic grid near the pole,
+ * The most detailed source that covers each point: the polar stereographic grids near the pole,
  * then any detailed equirectangular band, then the global grid.
  */
-export function createTerrain(global: DemGrid, detailed: readonly DemGrid[] = [], polar?: PolarGrid): Terrain {
+export function createTerrain(global: DemGrid, detailed: readonly DemGrid[] = [], polar: readonly PolarGrid[] = []): Terrain {
   return {
     heightAt(latDeg, lonDeg) {
-      if (polar?.covers(latDeg)) return polar.heightAt(latDeg, lonDeg);
+      // Polar grids are listed innermost (most detailed) first.
+      const tile = polar.find((g) => g.covers(latDeg));
+      if (tile) return tile.heightAt(latDeg, lonDeg);
       const grid = detailed.find((g) => coversLat(g, latDeg)) ?? global;
       return sampleGrid(grid, latDeg, lonDeg);
     },

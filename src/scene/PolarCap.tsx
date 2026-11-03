@@ -34,15 +34,21 @@ const MIN_DENSITY = 0.035;
 /** How quickly the grid relaxes toward uniform as the camera pulls back. */
 const DENSITY_PER_RANGE = 0.5;
 const SUN_RADIUS_RAD = (0.267 * Math.PI) / 180;
-/** Fake craters only below the ~300 m resolution of the polar elevation data. */
-const DETAIL_CELLS_KM: [number, number, number] = [0.32, 0.11, 0.04];
+/** Fake craters only below the tile's own resolution, as multiples of its pixel size. */
+const DETAIL_CELLS_PER_PIXEL: [number, number, number] = [2, 0.7, 0.25];
+const TILE_PIXELS = 4096;
 
 const noRaycast = () => null;
+
+function detailCells(tile: PolarTile): [number, number, number] {
+  const pixelKm = (2 * tile.rhoMax * MOON_RADIUS_KM) / TILE_PIXELS;
+  return DETAIL_CELLS_PER_PIXEL.map((k) => k * pixelKm) as [number, number, number];
+}
 
 /** South of 80° S, drawn on a dense polar grid with ray-marched terrain shadows. */
 export function PolarCap({ sunDir, earthDir, heightRange, polar, lighting, focus }: PolarCapProps) {
   const [color, normal, height] = useTexture(
-    [textureUrl('south_color_4k.jpg'), textureUrl('south_normal_6k.jpg'), textureUrl('south_height_4k.png')],
+    [`${polar.name}_color_4k.jpg`, `${polar.name}_normal_6k.jpg`, `${polar.name}_height_4k.png`].map(textureUrl),
     prepareTerrainSet,
   );
 
@@ -59,6 +65,7 @@ export function PolarCap({ sunDir, earthDir, heightRange, polar, lighting, focus
       heightSize: { value: polar.heightSize },
       rhoMax: { value: polar.rhoMax },
       rhoEdge: { value: polar.rhoEdge },
+      innerRho: { value: polar.innerRho },
       sunRadius: { value: SUN_RADIUS_RAD },
       sunDir: { value: sunDir },
       earthDir: { value: earthDir },
@@ -68,7 +75,7 @@ export function PolarCap({ sunDir, earthDir, heightRange, polar, lighting, focus
       relief: { value: lighting.relief },
       fillLight: { value: lighting.fillLight },
       detailStrength: { value: 0.22 },
-      detailCellKm: { value: DETAIL_CELLS_KM },
+      detailCellKm: { value: detailCells(polar) },
       focus: { value: new Vector2() },
       // From a focus at one edge, the grid must still reach the opposite edge.
       extent: { value: 2 * polar.rhoMax },

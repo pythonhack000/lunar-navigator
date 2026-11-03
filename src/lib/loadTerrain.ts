@@ -11,9 +11,13 @@ interface GridEntry {
 
 /** South polar stereographic tile: radii are in the projection plane of a unit sphere. */
 export interface PolarTile {
+  /** Texture name prefix, e.g. "south" -> textures/south_height_4k.png. */
+  name: string;
   edgeLat: number;
   rhoEdge: number;
   rhoMax: number;
+  /** Radius inside which a more detailed tile draws instead (0 for the innermost). */
+  innerRho: number;
   heightSize: number;
 }
 
@@ -22,6 +26,8 @@ export interface TerrainManifest {
   detailed: GridEntry[];
   heightTexture: { minM: number; maxM: number };
   polar: PolarTile;
+  /** Optional ring of medium detail around the inner polar tile. */
+  polarOuter?: PolarTile;
 }
 
 export interface LoadedTerrain {
@@ -49,21 +55,31 @@ function parseManifest(value: unknown): TerrainManifest {
   if (typeof heightTexture?.minM !== 'number' || typeof heightTexture?.maxM !== 'number') {
     throw new Error('Terrain manifest is missing the height texture range');
   }
-  const polar = v.polar as Record<string, unknown> | undefined;
-  const polarKeys = ['edgeLat', 'rhoEdge', 'rhoMax', 'heightSize'] as const;
-  if (!polar || !polarKeys.every((k) => typeof polar[k] === 'number' && Number.isFinite(polar[k]))) {
-    throw new Error('Terrain manifest is missing the polar tile');
-  }
+  const polar = parsePolarTile(v.polar);
+  if (!polar) throw new Error('Terrain manifest is missing the polar tile');
+  const polarOuter = parsePolarTile(v.polarOuter) ?? undefined;
   return {
     global: v.global,
     detailed,
     heightTexture: { minM: heightTexture.minM, maxM: heightTexture.maxM },
-    polar: {
-      edgeLat: polar.edgeLat as number,
-      rhoEdge: polar.rhoEdge as number,
-      rhoMax: polar.rhoMax as number,
-      heightSize: polar.heightSize as number,
-    },
+    polar,
+    ...(polarOuter ? { polarOuter } : {}),
+  };
+}
+
+function parsePolarTile(value: unknown): PolarTile | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const t = value as Record<string, unknown>;
+  const numeric = ['edgeLat', 'rhoEdge', 'rhoMax', 'innerRho', 'heightSize'] as const;
+  if (typeof t.name !== 'string' || !/^[a-z0-9]+$/.test(t.name)) return null;
+  if (!numeric.every((k) => typeof t[k] === 'number' && Number.isFinite(t[k]))) return null;
+  return {
+    name: t.name,
+    edgeLat: t.edgeLat as number,
+    rhoEdge: t.rhoEdge as number,
+    rhoMax: t.rhoMax as number,
+    innerRho: t.innerRho as number,
+    heightSize: t.heightSize as number,
   };
 }
 
@@ -82,16 +98,16 @@ async function loadGrid(entry: GridEntry): Promise<DemGrid> {
   return { ...entry, data: new Int16Array(buffer) };
 }
 
-const POLAR_HEIGHT_IMAGE = 'textures/south_height_4k.png';
-/** Every second pixel: ~300 m spacing, close to the LOLA source and a quarter of the memory. */
-const POLAR_GRID_STEP = 2;
+/** Inner tile: every second pixel (~300 m, close to the 80 m source after reprojection); outer: every pixel (~460 m). */
+const INNER_GRID_STEP = 2;
+const OUTER_GRID_STEP = 1;
 
 /**
  * The polar cap heights (LOLA 80 m map) arrive as the same packed PNG the 3D view uses; decode it
  * once more on the CPU so horizon calculations near the pole use the detailed data too.
  */
-async function loadPolarGrid(manifest: TerrainManifest): Promise<PolarGrid> {
-  const blob = await (await fetchOk(POLAR_HEIGHT_IMAGE)).blob();
+async function loadPolarGrid(manifest: TerrainManifest, tile: PolarTile, step: number): Promise<PolarGrid> {
+  const blob = await (await fetchOk(`textures/${tile.name}_height_4k.png`)).blob();
   const bitmap = await createImageBitmap(blob, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
   const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -101,19 +117,22 @@ async function loadPolarGrid(manifest: TerrainManifest): Promise<PolarGrid> {
   const pixels = ctx.getImageData(0, 0, width, height).data;
   bitmap.close();
   return createPolarGrid({
-    size: Math.floor(width / POLAR_GRID_STEP),
-    rhoMax: manifest.polar.rhoMax,
-    edgeLat: manifest.polar.edgeLat,
-    data: decodePackedHeights(pixels, width, height, manifest.heightTexture, POLAR_GRID_STEP),
+    size: Math.floor(width / step),
+    rhoMax: tile.rhoMax,
+    edgeLat: tile.edgeLat,
+    data: decodePackedHeights(pixels, width, height, manifest.heightTexture, step),
   });
 }
 
 /** Loads the LOLA elevation grids listed in public/data/manifest.json. */
 export async function loadTerrain(): Promise<LoadedTerrain> {
   const manifest = parseManifest(await (await fetchOk('data/manifest.json')).json());
-  const [polar, global, ...detailed] = await Promise.all([
-    loadPolarGrid(manifest),
+  const outer = manifest.polarOuter;
+  const [inner, outerGrid, global, ...detailed] = (await Promise.all([
+    loadPolarGrid(manifest, manifest.polar, INNER_GRID_STEP),
+    outer ? loadPolarGrid(manifest, outer, OUTER_GRID_STEP) : Promise.resolve(null),
     ...[manifest.global, ...manifest.detailed].map(loadGrid),
-  ]);
-  return { terrain: createTerrain(global as DemGrid, detailed as DemGrid[], polar as PolarGrid), manifest };
+  ])) as [PolarGrid, PolarGrid | null, DemGrid, ...DemGrid[]];
+  const polarGrids = [inner, outerGrid].filter((g): g is PolarGrid => g !== null);
+  return { terrain: createTerrain(global, detailed, polarGrids), manifest };
 }

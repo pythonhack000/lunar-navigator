@@ -33,6 +33,8 @@ interface CameraRigProps {
   focus: CameraFocus;
   /** Latitude south of which the detailed polar terrain allows zooming right down. */
   polarEdgeLat: number;
+  /** Edge of the medium-detail ring, if there is one. */
+  outerEdgeLat?: number;
   /** Called when the Moon is clicked (a quick press without dragging). */
   onPick: (lat: number, lon: number) => void;
 }
@@ -67,9 +69,10 @@ function sitePose(lat: number, lon: number, sunDir: Vector3): CameraPose {
  * Google-Earth-style navigation: drag to slide the ground, right-drag or shift-drag to turn and
  * tilt, wheel or pinch to zoom. On touch: one finger slides, two fingers pinch and tilt.
  */
-export function CameraRig({ lat, lon, sunDir, isGlobeView, terrain, relief, focus, polarEdgeLat, onPick }: CameraRigProps) {
+export function CameraRig({ lat, lon, sunDir, isGlobeView, terrain, relief, focus, polarEdgeLat, outerEdgeLat, onPick }: CameraRigProps) {
   // Detail stops a little inside the cap edge, so allow full zoom only once well within it.
   const polarCutY = Math.sin(((polarEdgeLat + 0.5) * Math.PI) / 180);
+  const outerCutY = Math.sin((((outerEdgeLat ?? polarEdgeLat) + 0.5) * Math.PI) / 180);
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
   // Start out at the whole globe, then fly in to the first site.
@@ -150,7 +153,7 @@ export function CameraRig({ lat, lon, sunDir, isGlobeView, terrain, relief, focu
       press.travel += Math.hypot(dx, dy);
       if (pointers.size === 2) {
         const now = spread();
-        if (pinch > 0 && now > 0) goal.current = withRange(goal.current, goal.current.range * (pinch / now), minRangeAt(goal.current.target, polarCutY));
+        if (pinch > 0 && now > 0) goal.current = withRange(goal.current, goal.current.range * (pinch / now), minRangeAt(goal.current.target, polarCutY, outerCutY));
         pinch = now;
         goal.current = withTilt(goal.current, goal.current.tilt - (dy / 2) * ORBIT_RAD_PER_PX);
         return;
@@ -175,7 +178,7 @@ export function CameraRig({ lat, lon, sunDir, isGlobeView, terrain, relief, focu
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       takeOver();
-      goal.current = withRange(goal.current, goal.current.range * Math.exp(e.deltaY * WHEEL_ZOOM), minRangeAt(goal.current.target, polarCutY));
+      goal.current = withRange(goal.current, goal.current.range * Math.exp(e.deltaY * WHEEL_ZOOM), minRangeAt(goal.current.target, polarCutY, outerCutY));
     };
 
     const preventMenu = (e: Event) => e.preventDefault();
@@ -194,7 +197,7 @@ export function CameraRig({ lat, lon, sunDir, isGlobeView, terrain, relief, focu
       el.removeEventListener('wheel', handleWheel);
       el.removeEventListener('contextmenu', preventMenu);
     };
-  }, [gl, camera, polarCutY]);
+  }, [gl, camera, polarCutY, outerCutY]);
 
   useFrame((_, delta) => {
     const f = flight.current;
@@ -204,7 +207,7 @@ export function CameraRig({ lat, lon, sunDir, isGlobeView, terrain, relief, focu
       if (f.t >= 1) flight.current = null;
     } else {
       // Sliding out of the polar cap while zoomed in eases back up to the closest sharp view.
-      const minRange = minRangeAt(goal.current.target, polarCutY);
+      const minRange = minRangeAt(goal.current.target, polarCutY, outerCutY);
       if (goal.current.range < minRange) goal.current = withRange(goal.current, minRange, minRange);
       current.current = approach(current.current, goal.current, 1 - Math.exp(-delta * DAMPING));
     }

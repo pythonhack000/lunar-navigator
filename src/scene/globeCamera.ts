@@ -25,6 +25,8 @@ export interface CameraFocus {
 export const MIN_RANGE = 0.004; // ~7 km
 /** Outside the detailed polar map the global data is ~2.6 km per sample; stop before it turns to mush. */
 export const MIN_RANGE_GLOBAL = 0.026; // ~45 km
+/** In the 240 m ring around the pole. */
+export const MIN_RANGE_OUTER = 0.008; // ~14 km
 export const MAX_RANGE = 5;
 const MAX_TILT_CLOSE = MathUtils.degToRad(84);
 /** Tilt is allowed close in and fades out while zooming out, so the far view is the whole globe. */
@@ -79,9 +81,14 @@ export function rotateHeading(p: CameraPose, angle: number): CameraPose {
   return { ...clonePose(p), forward: p.forward.clone().applyQuaternion(q).normalize() };
 }
 
-/** Closest zoom over `target`: full depth inside the detailed polar cap (scene axes: -Y is south). */
-export function minRangeAt(target: Vector3, polarCutY: number): number {
-  return target.y < polarCutY ? MIN_RANGE : MIN_RANGE_GLOBAL;
+/**
+ * Closest zoom over `target`, by how detailed the terrain data is there (scene axes: -Y is south):
+ * full depth over the 80 m polar map, a little less over the 240 m ring, and stop well above the
+ * coarse global data.
+ */
+export function minRangeAt(target: Vector3, innerCutY: number, outerCutY = innerCutY): number {
+  if (target.y < innerCutY) return MIN_RANGE;
+  return target.y < outerCutY ? MIN_RANGE_OUTER : MIN_RANGE_GLOBAL;
 }
 
 export function withRange(p: CameraPose, range: number, minRange = MIN_RANGE): CameraPose {

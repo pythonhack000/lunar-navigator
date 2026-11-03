@@ -27,5 +27,13 @@
     "innerRho": 0.0,
     "heightSize": 4096
   },
+  "polarOuter": {
+    "name": "south60",
+    "edgeLat": -60.0,
+    "rhoEdge": 0.5358983848622455,
+    "rhoMax": 0.5466163525594904,
+    "innerRho": 0.17497732705184807,
+    "heightSize": 4096
+  },
   "source": "NASA SVS CGI Moon Kit (LRO LROC colour, LOLA elevation)"
 }

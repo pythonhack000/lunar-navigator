@@ -37,6 +37,7 @@ function Navigator({ loaded }: Props) {
           <MoonScene
             heightRange={loaded.manifest.heightTexture}
             polar={loaded.manifest.polar}
+            polarOuter={loaded.manifest.polarOuter}
             terrain={loaded.terrain}
             onPick={handlePick}
           />

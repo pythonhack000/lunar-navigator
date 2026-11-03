@@ -20,6 +20,7 @@ import { Sun } from './Sun';
 interface MoonSceneProps {
   heightRange: { minM: number; maxM: number };
   polar: PolarTile;
+  polarOuter?: PolarTile;
   terrain: Terrain;
   onPick: (lat: number, lon: number) => void;
 }
@@ -54,7 +55,7 @@ function NearPlaneTuning() {
 }
 
 /** Memoised: the panels re-render several times a second while time plays, the 3D scene must not. */
-export const MoonScene = memo(function MoonScene({ heightRange, polar, terrain, onPick }: MoonSceneProps) {
+export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOuter, terrain, onPick }: MoonSceneProps) {
   const site = useNavigator((s) => s.site);
   const compare = useNavigator((s) => s.compare);
   const isGlobeView = useNavigator((s) => s.isGlobeView);
@@ -84,18 +85,22 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, terrain, 
           sunDir={sky.sunDir}
           earthDir={sky.earthDir}
           heightRange={heightRange}
-          polarEdgeLat={polar.edgeLat}
+          polarEdgeLat={polarOuter?.edgeLat ?? polar.edgeLat}
           lighting={lighting}
           focus={focus}
         />
         <PolarCap sunDir={sky.sunDir} earthDir={sky.earthDir} heightRange={heightRange} polar={polar} lighting={lighting} focus={focus} />
+        {/* Same boundary as the globe: the globe leaves this ring to it, so they must appear together. */}
+        {polarOuter && (
+          <PolarCap sunDir={sky.sunDir} earthDir={sky.earthDir} heightRange={heightRange} polar={polarOuter} lighting={lighting} focus={focus} />
+        )}
         <Earth sky={sky} radius={EARTH_RADIUS_KM / MOON_RADIUS_KM} />
       </Suspense>
       <SiteMarker lat={site.lat} lon={site.lon} label={site.name} isPrimary />
       {others.map((c) => (
         <SiteMarker key={siteKey(c)} lat={c.lat} lon={c.lon} label={c.name} isPrimary={false} />
       ))}
-      <CameraRig lat={site.lat} lon={site.lon} sunDir={sky.sunDir} isGlobeView={isGlobeView} terrain={terrain} relief={relief} focus={focus} polarEdgeLat={polar.edgeLat} onPick={onPick} />
+      <CameraRig lat={site.lat} lon={site.lon} sunDir={sky.sunDir} isGlobeView={isGlobeView} terrain={terrain} relief={relief} focus={focus} polarEdgeLat={polar.edgeLat} outerEdgeLat={polarOuter?.edgeLat} onPick={onPick} />
       <EffectComposer>
         <Bloom intensity={0.9} luminanceThreshold={0.95} luminanceSmoothing={0.2} mipmapBlur />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />

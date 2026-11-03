@@ -9,6 +9,7 @@ import { Assistant } from './ui/Assistant';
 import { useLangScramble } from './ui/useLangScramble';
 import { CameraStatus } from './ui/CameraStatus';
 import { LoadingBar } from './ui/LoadingBar';
+import { StartScreen } from './ui/StartScreen';
 import { ComparePanel } from './ui/ComparePanel';
 import { SceneErrorBoundary } from './ui/SceneErrorBoundary';
 import { SitePanel } from './ui/SitePanel';
@@ -66,6 +67,17 @@ function Navigator({ loaded }: Props) {
   );
 }
 
+function whenSceneReady(): Promise<void> {
+  return new Promise((resolve) => {
+    if (useNavigator.getState().sceneReady) return resolve();
+    const stop = useNavigator.subscribe((s) => {
+      if (!s.sceneReady) return;
+      stop();
+      resolve();
+    });
+  });
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unexpected error';
 }
@@ -78,13 +90,15 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     loadTerrain()
-      .then(({ refined, ...base }) => {
+      .then(({ refine, ...base }) => {
         if (cancelled) return;
         setLoaded(base);
-        // Horizons sharpen once the polar grids arrive; until then the 16 px/° grid is used.
-        refined
+        // The detailed grids wait until the Moon is on screen, so they never delay it; horizons
+        // then sharpen from the 4 px/° global grid to LOLA's polar maps.
+        whenSceneReady()
+          .then(refine)
           .then((terrain) => !cancelled && setLoaded({ ...base, terrain }))
-          .catch((e: unknown) => console.warn('Detailed polar terrain failed to load', e));
+          .catch((e: unknown) => console.warn('Detailed terrain failed to load', e));
       })
       .catch((e: unknown) => !cancelled && setError(errorMessage(e)));
     return () => {
@@ -101,13 +115,10 @@ export default function App() {
       </div>
     );
   }
-  if (!loaded) {
-    return (
-      <div className="splash" aria-busy="true">
-        <h1>{translate(lang, 'brand.title')}</h1>
-        <p>{translate(lang, 'loading')}</p>
-      </div>
-    );
-  }
-  return <Navigator loaded={loaded} />;
+  return (
+    <>
+      {loaded && <Navigator loaded={loaded} />}
+      <StartScreen terrainReady={loaded !== null} />
+    </>
+  );
 }

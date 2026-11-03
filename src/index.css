@@ -387,12 +387,35 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 .compare__bar span { display: block; height: 100%; border-radius: 2px; background: var(--faint); }
 .compare td.is-best .compare__bar span { background: var(--sun); }
 
-/* Texture loading progress over the scene */
+/* Texture streaming after the Moon is up: a quiet chip under the top controls */
 .loading-bar {
-  position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 3;
-  display: flex; flex-direction: column; gap: 8px; align-items: center; min-width: 280px;
-  padding: 12px 18px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line-strong);
-  backdrop-filter: blur(10px); font-size: 12.5px; color: var(--muted); pointer-events: none;
+  position: absolute; left: 50%; top: 132px; transform: translateX(-50%); z-index: 3;
+  display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 99px;
+  background: var(--panel); border: 1px solid var(--line-strong); backdrop-filter: blur(10px);
+  font-size: 12px; color: var(--muted); pointer-events: none;
 }
-.loading-bar__track { width: 100%; height: 3px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.loading-bar__track { width: 72px; height: 3px; border-radius: 99px; background: var(--line); overflow: hidden; }
 .loading-bar__track span { display: block; height: 100%; background: var(--sun); transition: width 0.3s ease; }
+
+/* Start screen: covers everything until the Moon is on screen, then fades away */
+.start-screen {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-content: center; justify-items: center;
+  gap: 12px; padding: 16px; text-align: center; background: var(--bg); transition: opacity 0.6s ease;
+}
+.start-screen.is-done { opacity: 0; pointer-events: none; }
+.start-screen h1 { font-size: 20px; margin: 8px 0 0; }
+.start-screen p { color: var(--muted); margin: 0; }
+.start-screen small { color: var(--faint); font: 12px var(--mono); }
+.start-screen__moon {
+  width: 96px; height: 96px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #d9d6cf, #8d8a84 45%, #2a2926 75%);
+  box-shadow: 0 0 60px rgba(255, 255, 255, 0.08); animation: moon-turn 6s ease-in-out infinite;
+}
+.start-screen__track { width: min(320px, 70vw); height: 3px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 6px; }
+.start-screen__track span { display: block; height: 100%; background: var(--sun); transition: width 0.4s ease; }
+.start-screen__track.is-waiting span { width: 30%; animation: track-sweep 1.4s ease-in-out infinite; }
+@keyframes track-sweep { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@keyframes moon-turn { 50% { box-shadow: 0 0 80px rgba(255, 181, 71, 0.12); } }
+@media (prefers-reduced-motion: reduce) {
+  .start-screen__moon, .start-screen__track.is-waiting span { animation: none; }
+}

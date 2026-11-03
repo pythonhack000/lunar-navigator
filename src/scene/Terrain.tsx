@@ -1,7 +1,7 @@
 import { useTexture } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
-import { BackSide, DataTexture, FrontSide, PlaneGeometry, ShaderMaterial, Vector2, Vector4, type IUniform, type Texture, type Vector3 } from 'three';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { BackSide, DataTexture, FrontSide, PlaneGeometry, ShaderMaterial, TextureLoader, Vector2, Vector4, type IUniform, type Texture, type Vector3 } from 'three';
 import { MOON_RADIUS_KM } from '../lib/ephemeris';
 import type { PolarTile, TileGridSpec } from '../lib/loadTerrain';
 import { useNavigator } from '../state/store';
@@ -39,7 +39,6 @@ const POLAR_LEVELS = 9;
 const GLOBE_TOP_CELL = (2 * Math.PI) / GRID_CELLS;
 /** The globe keeps drawing this far inside the polar mesh, so their hand-over never leaves a gap. */
 const OVERLAP_DEG = 1.5;
-const GLOBAL_HEIGHT_SIZE = new Vector2(4096, 2048);
 const SUN_RADIUS_RAD = (0.267 * Math.PI) / 180;
 /** Procedural craters: three octaves here plus two finer ones in the shader, all below ~600 m. */
 const DETAIL_CELLS_KM: [number, number, number] = [0.6, 0.2, 0.07];
@@ -53,7 +52,37 @@ EMPTY_TEXTURE.needsUpdate = true;
 
 type Uniforms = Record<string, IUniform>;
 
-const tileUrls = (name: string) => [`${name}_color_4k.jpg`, `${name}_normal_6k.jpg`, `${name}_height_4k.png`].map(textureUrl);
+/** Small versions load first so the Moon appears within seconds; the full set replaces them later. */
+const previewUrls = (name: string) => [`${name}_color_1k.jpg`, `${name}_normal_1k.jpg`, `${name}_height_1k.png`].map(textureUrl);
+const fullUrls = (name: string) => [`${name}_color_4k.jpg`, `${name}_normal_6k.jpg`, `${name}_height_4k.png`].map(textureUrl);
+const GLOBAL_PREVIEW = ['moon_color_2k.jpg', 'moon_normal_2k.jpg', 'moon_height_1k.png'].map(textureUrl);
+const GLOBAL_FULL = ['moon_color_8k.jpg', 'moon_normal_8k.jpg', 'moon_height_4k.png'].map(textureUrl);
+
+type TerrainSet = 'global' | 'inner' | 'outer';
+
+const loadSet = (urls: string[]): Promise<Texture[]> => {
+  const loader = new TextureLoader();
+  return Promise.all(urls.map((url) => loader.loadAsync(url))).then((set) => {
+    prepareTerrainSet(set);
+    return set;
+  });
+};
+
+/** Points a set's uniforms at new textures; heights carry their own size for the shader's decode. */
+function applySet(u: Uniforms, which: TerrainSet, [color, normal, height]: Texture[]): void {
+  const image = height.image as { width: number; height: number };
+  if (which === 'global') {
+    u.globalColorMap.value = color;
+    u.globalNormalMap.value = normal;
+    u.globalHeightMap.value = height;
+    u.globalHeightSize.value = new Vector2(image.width, image.height);
+    return;
+  }
+  u[`${which}ColorMap`].value = color;
+  u[`${which}NormalMap`].value = normal;
+  u[`${which}HeightMap`].value = height;
+  u[`${which}Size`].value = image.width;
+}
 
 /** A unit grid of (GRID_CELLS + 1)² vertices spanning [0, 1]², shared by every level. */
 function unitGrid(): PlaneGeometry {
@@ -110,18 +139,17 @@ function applyLevels(meshes: LevelMesh[], focusX: number, focusY: number, cell0:
 }
 
 export function Terrain({ sunDir, earthDir, heightRange, polar, polarOuter, tiles, lighting, focus }: TerrainProps) {
-  const globalSet = useTexture(
-    [textureUrl('moon_color_8k.jpg'), textureUrl('moon_normal_8k.jpg'), textureUrl('moon_height_4k.png')],
-    prepareTerrainSet,
-  );
-  const innerSet = useTexture(tileUrls(polar.name), prepareTerrainSet);
+  const globalSet = useTexture(GLOBAL_PREVIEW, prepareTerrainSet);
+  const innerSet = useTexture(previewUrls(polar.name), prepareTerrainSet);
   // Without an outer ring the inner tile's textures stand in, switched off by hasOuter.
-  const outerSet = useTexture(tileUrls((polarOuter ?? polar).name), prepareTerrainSet);
+  const outerSet = useTexture(previewUrls((polarOuter ?? polar).name), prepareTerrainSet);
   const lightMap = useTexture(textureUrl('south_light_512.png'));
   const outer = polarOuter ?? polar;
   const coverRho = outer.rhoMax;
 
   const geometry = useMemo(unitGrid, []);
+  /** Full-resolution sets once downloaded; they outlive material rebuilds (e.g. a relief change). */
+  const fullSets = useRef<Partial<Record<TerrainSet, Texture[]>>>({});
 
   const { shared, globe, polarMeshes } = useMemo(() => {
     const [gColor, gNormal, gHeight] = globalSet as Texture[];
@@ -133,19 +161,19 @@ export function Terrain({ sunDir, earthDir, heightRange, polar, polarOuter, tile
       heightScale: { value: 1 / (MOON_RADIUS_KM * 1000) },
       kmPerParam: { value: MOON_RADIUS_KM },
       globalHeightMap: { value: gHeight },
-      globalHeightSize: { value: GLOBAL_HEIGHT_SIZE },
+      globalHeightSize: { value: new Vector2(1, 1) },
       globalColorMap: { value: gColor },
       globalNormalMap: { value: gNormal },
       innerHeightMap: { value: iHeight },
       innerColorMap: { value: iColor },
       innerNormalMap: { value: iNormal },
-      innerSize: { value: polar.heightSize },
+      innerSize: { value: 1 },
       innerRhoMax: { value: polar.rhoMax },
       innerRhoEdge: { value: polar.rhoEdge },
       outerHeightMap: { value: oHeight },
       outerColorMap: { value: oColor },
       outerNormalMap: { value: oNormal },
-      outerSize: { value: outer.heightSize },
+      outerSize: { value: 1 },
       outerRhoMax: { value: outer.rhoMax },
       outerRhoEdge: { value: outer.rhoEdge },
       hasOuter: { value: polarOuter ? 1 : 0 },
@@ -171,12 +199,51 @@ export function Terrain({ sunDir, earthDir, heightRange, polar, polarOuter, tile
       lightMap: { value: lightMap },
       layerMode: { value: 0 },
     };
+    applySet(shared, 'global', globalSet as Texture[]);
+    applySet(shared, 'inner', innerSet as Texture[]);
+    applySet(shared, 'outer', outerSet as Texture[]);
     return {
       shared,
       globe: makeLevels(GLOBE_LEVELS, shared, globeVertexShader, globeFragmentShader, true),
       polarMeshes: makeLevels(POLAR_LEVELS, shared, polarVertexShader, polarFragmentShader, false),
     };
   }, [globalSet, innerSet, outerSet, lightMap, heightRange, polar, polarOuter, outer, sunDir, earthDir, lighting]);
+
+  // The previews are on screen: tell the app, then fetch the full-resolution sets one at a time,
+  // the pole first since that is where the camera starts.
+  const sharedRef = useRef(shared);
+  // Rebuilt materials (e.g. after a relief change) start from the previews; put back the full
+  // sets already downloaded before the frame is drawn.
+  useLayoutEffect(() => {
+    sharedRef.current = shared;
+    for (const [which, set] of Object.entries(fullSets.current)) applySet(shared, which as TerrainSet, set);
+  }, [shared]);
+  useEffect(() => {
+    useNavigator.getState().setSceneReady();
+    let cancelled = false;
+    const sets = fullSets.current;
+    const queue: [TerrainSet, string[]][] = [
+      ['inner', fullUrls(polar.name)],
+      ...(polarOuter ? [['outer', fullUrls(polarOuter.name)] as [TerrainSet, string[]]] : []),
+      ['global', GLOBAL_FULL],
+    ];
+    (async () => {
+      for (const [which, urls] of queue) {
+        const set = await loadSet(urls);
+        if (cancelled) {
+          set.forEach((t) => t.dispose());
+          return;
+        }
+        sets[which] = set;
+        applySet(sharedRef.current, which, set);
+      }
+    })().catch((err: unknown) => console.warn('Full-resolution textures failed; keeping the previews', err));
+    return () => {
+      cancelled = true;
+      for (const set of Object.values(sets)) set.forEach((t) => t.dispose());
+      fullSets.current = {};
+    };
+  }, [polar.name, polarOuter]);
 
   // Streams the 3x3 block of LOLA detail tiles around the focus; swaps it in only once loaded.
   const atlas = useRef<{ current: DetailAtlas | null; loading: string | null }>({ current: null, loading: null });

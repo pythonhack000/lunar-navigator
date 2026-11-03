@@ -57,6 +57,9 @@ interface NavigatorState {
   /** Overlay on the south polar terrain: annual sunlight or permanent shadow (ice). */
   layer: MapLayer;
   setLayer: (layer: MapLayer) => void;
+  /** True once the first (preview) textures are on screen and the Moon is visible. */
+  sceneReady: boolean;
+  setSceneReady: () => void;
   setTime: (time: number) => void;
   setGlobeView: (isGlobeView: boolean) => void;
   setPlaying: (playing: boolean) => void;
@@ -97,6 +100,8 @@ export const useNavigator = create<NavigatorState>((set) => ({
   },
   layer: 'none',
   setLayer: (layer) => set({ layer }),
+  sceneReady: false,
+  setSceneReady: () => set({ sceneReady: true }),
   setTime: (time) => set({ time }),
   setGlobeView: (isGlobeView) => set({ isGlobeView }),
   setPlaying: (playing) => set({ playing }),

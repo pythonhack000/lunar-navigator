@@ -118,16 +118,15 @@ async function loadGrid(entry: GridEntry): Promise<DemGrid> {
   return { ...entry, data: new Int16Array(buffer) };
 }
 
-/** Inner tile: every second pixel (~300 m, close to the 80 m source after reprojection); outer: every pixel (~460 m). */
-const INNER_GRID_STEP = 2;
-const OUTER_GRID_STEP = 1;
+/** The CPU grids read 2k height maps: ~300 m inside 80° S and ~930 m out to 60° S. */
+const CPU_HEIGHT_FILE = (name: string) => `textures/${name}_height_2k.png`;
 
 /**
  * The polar cap heights (LOLA 80 m map) arrive as the same packed PNG the 3D view uses; decode it
  * once more on the CPU so horizon calculations near the pole use the detailed data too.
  */
-async function loadPolarGrid(manifest: TerrainManifest, tile: PolarTile, step: number): Promise<PolarGrid> {
-  const blob = await (await fetchOk(`textures/${tile.name}_height_4k.png`)).blob();
+async function loadPolarGrid(manifest: TerrainManifest, tile: PolarTile): Promise<PolarGrid> {
+  const blob = await (await fetchOk(CPU_HEIGHT_FILE(tile.name))).blob();
   const bitmap = await createImageBitmap(blob, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
   const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -137,29 +136,33 @@ async function loadPolarGrid(manifest: TerrainManifest, tile: PolarTile, step: n
   const pixels = ctx.getImageData(0, 0, width, height).data;
   bitmap.close();
   return createPolarGrid({
-    size: Math.floor(width / step),
+    size: width,
     rhoMax: tile.rhoMax,
     edgeLat: tile.edgeLat,
-    data: decodePackedHeights(pixels, width, height, manifest.heightTexture, step),
+    data: decodePackedHeights(pixels, width, height, manifest.heightTexture, 1),
   });
 }
 
 export interface StagedTerrain extends LoadedTerrain {
-  /** The same terrain with the detailed polar grids (LOLA 80 m / 240 m), which arrive later. */
-  refined: Promise<Terrain>;
+  /** Loads the detailed grids (16 px/° belt, LOLA polar maps) and returns the sharper terrain. */
+  refine: () => Promise<Terrain>;
 }
 
 /**
  * Loads the LOLA elevation grids listed in public/data/manifest.json in two stages: the small
- * global grids (a few MB) first, so the app opens at once; the polar grids (tens of MB) after.
+ * global grid first, so the app opens quickly; the detailed grids (~17 MB) when `refine` is called.
  */
 export async function loadTerrain(): Promise<StagedTerrain> {
   const manifest = parseManifest(await (await fetchOk('data/manifest.json')).json());
-  const [global, ...detailed] = await Promise.all([manifest.global, ...manifest.detailed].map(loadGrid));
-  const outer = manifest.polarOuter;
-  const refined = Promise.all([
-    loadPolarGrid(manifest, manifest.polar, INNER_GRID_STEP),
-    outer ? loadPolarGrid(manifest, outer, OUTER_GRID_STEP) : Promise.resolve(null),
-  ]).then((grids) => createTerrain(global, detailed, grids.filter((g): g is PolarGrid => g !== null)));
-  return { terrain: createTerrain(global, detailed), manifest, refined };
+  const global = await loadGrid(manifest.global);
+  const refine = async () => {
+    const outer = manifest.polarOuter;
+    const [detailed, ...polar] = await Promise.all([
+      Promise.all(manifest.detailed.map(loadGrid)),
+      loadPolarGrid(manifest, manifest.polar),
+      ...(outer ? [loadPolarGrid(manifest, outer)] : []),
+    ]);
+    return createTerrain(global, detailed as DemGrid[], polar as PolarGrid[]);
+  };
+  return { terrain: createTerrain(global), manifest, refine };
 }

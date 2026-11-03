@@ -60,6 +60,7 @@ export function Moon({ sunDir, earthDir, heightRange, polarEdgeLat, lighting, fo
       detailCellKm: { value: DETAIL_CELLS_KM },
       focus: { value: new Vector3(0, -1, 0) },
       density: { value: 1 },
+      centerSpacingKm: { value: 10 },
     }),
     [color, normal, height, heightRange, polarEdgeLat, sunDir, earthDir, lighting],
   );
@@ -75,6 +76,7 @@ export function Moon({ sunDir, earthDir, heightRange, polarEdgeLat, lighting, fo
     const lon = snapTo(Math.atan2(y, x), lonStep);
     uniforms.focus.value.copy(toThree([Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat)]));
     uniforms.density.value = density;
+    uniforms.centerSpacingKm.value = (Math.PI * density * 2 * MOON_RADIUS_KM) / SEGMENTS;
   });
 
   // Picking intersects an analytic sphere in CameraRig, so the mesh itself is never ray-cast.

@@ -25,35 +25,13 @@ const common = /* glsl */ `
   }
 `;
 
-/** Fragment-only helper (it needs screen-space derivatives). */
-const equirectSampling = /* glsl */ `
-  /** Samples an equirectangular map without the mip seam where longitude wraps. */
-  vec4 sampleEquirect(sampler2D tex, vec2 uv) {
-    vec2 alt = vec2(fract(uv.x + 0.5) - 0.5, uv.y);
-    vec2 dx = dFdx(uv);
-    vec2 dy = dFdy(uv);
-    vec2 dxAlt = dFdx(alt);
-    vec2 dyAlt = dFdy(alt);
-    if (abs(dx.x) + abs(dy.x) > abs(dxAlt.x) + abs(dyAlt.x)) {
-      dx = dxAlt;
-      dy = dyAlt;
-    }
-    return textureGrad(tex, uv, dx, dy);
-  }
-`;
-
-const lighting = /* glsl */ `
-  uniform vec3 sunDir;
-  uniform vec3 earthDir;
-  uniform float sunIntensity;
-  uniform float earthshine;
-  uniform float bumpStrength;
-  uniform float relief;
-  uniform float fillLight;
+/**
+ * Procedural small craters (bowl plus raised rim), shared by vertex and fragment shaders. Only used
+ * below the resolution of the real data: it adds texture and side-on roughness, never calculations.
+ */
+const craterField = /* glsl */ `
   uniform float detailStrength;
   uniform vec3 detailCellKm;
-
-  const float LUNAR_LAMBERT_L = 0.6;
 
   vec3 hash3(vec3 p) {
     p = fract(p * vec3(0.1031, 0.1030, 0.0973));
@@ -90,15 +68,106 @@ const lighting = /* glsl */ `
     return g;
   }
 
+  /** Height of the crater field at q, in cell units (same craters as craterGradient). */
+  float craterHeight(vec3 q) {
+    vec3 cell = floor(q);
+    float h = 0.0;
+    for (int x = -1; x <= 1; x++)
+    for (int y = -1; y <= 1; y++)
+    for (int z = -1; z <= 1; z++) {
+      vec3 c = cell + vec3(float(x), float(y), float(z));
+      vec3 n = hash3(c);
+      if (n.z > 0.32) continue;
+      float k = n.z / 0.32;
+      float r = 0.07 + 0.4 * k * k * k;
+      float s = length(q - (c + n)) / r;
+      if (s > 1.7) continue;
+      float depth = mix(0.35, 0.12, n.x);
+      float bowl = s < 1.0 ? s * s - 1.0 : 0.0;
+      float rim = 0.12 * exp(-pow((s - 1.0) / 0.22, 2.0));
+      h += depth * r * (bowl + rim);
+    }
+    return h;
+  }
+
+  /**
+   * Procedural relief in metres for a vertex, keeping only craters several times larger than the
+   * local vertex spacing (smaller ones would just alias); the fragment normals carry the rest.
+   */
+  float detailHeightM(vec3 up, float spacingKm) {
+    float h = 0.0;
+    for (int i = 0; i < 3; i++) {
+      float w = smoothstep(2.5, 5.0, detailCellKm[i] / spacingKm);
+      if (w > 0.0) h += w * detailCellKm[i] * craterHeight(up * (MOON_RADIUS_M / 1000.0 / detailCellKm[i]));
+    }
+    return h * 1000.0 * detailStrength;
+  }
+`;
+
+/** Fragment-only helper (it needs screen-space derivatives). */
+const equirectSampling = /* glsl */ `
+  /** Samples an equirectangular map without the mip seam where longitude wraps. */
+  vec4 sampleEquirect(sampler2D tex, vec2 uv) {
+    vec2 alt = vec2(fract(uv.x + 0.5) - 0.5, uv.y);
+    vec2 dx = dFdx(uv);
+    vec2 dy = dFdy(uv);
+    vec2 dxAlt = dFdx(alt);
+    vec2 dyAlt = dFdy(alt);
+    if (abs(dx.x) + abs(dy.x) > abs(dxAlt.x) + abs(dyAlt.x)) {
+      dx = dxAlt;
+      dy = dyAlt;
+    }
+    return textureGrad(tex, uv, dx, dy);
+  }
+`;
+
+const lighting = /* glsl */ `
+  uniform vec3 sunDir;
+  uniform vec3 earthDir;
+  uniform float sunIntensity;
+  uniform float earthshine;
+  uniform float bumpStrength;
+  uniform float relief;
+  uniform float fillLight;
+
+  const float LUNAR_LAMBERT_L = 0.6;
+
+  /** Two finer octaves below the configured three, for regolith pitting seen right up close. */
+  const int DETAIL_OCTAVES = 5;
+  const float FINE_OCTAVE_RATIO = 3.0;
+
+  float octaveCellKm(int i) {
+    return i < 3 ? detailCellKm[i] : detailCellKm[2] / pow(FINE_OCTAVE_RATIO, float(i - 2));
+  }
+
   vec3 detailGradient(vec3 up) {
     vec3 g = vec3(0.0);
-    for (int i = 0; i < 3; i++) {
-      vec3 q = up * (MOON_RADIUS_M / 1000.0 / detailCellKm[i]);
+    for (int i = 0; i < DETAIL_OCTAVES; i++) {
+      vec3 q = up * (MOON_RADIUS_M / 1000.0 / octaveCellKm(i));
       // Fade each octave out once its craters shrink below a couple of pixels.
       float fade = 1.0 - smoothstep(0.15, 0.6, length(fwidth(q)));
       if (fade > 0.0) g += craterGradient(q) * fade;
     }
     return g;
+  }
+
+  /** Soft brightness mottling of the regolith at ~50 m and ~15 m, faded out when not resolved. */
+  float albedoMottle(vec3 up) {
+    float m = 1.0;
+    for (int i = 0; i < 2; i++) {
+      vec3 q = up * (MOON_RADIUS_M / (i == 0 ? 50.0 : 15.0));
+      float fade = 1.0 - smoothstep(0.2, 0.8, length(fwidth(q)));
+      if (fade <= 0.0) continue;
+      vec3 c = floor(q);
+      vec3 f = fract(q);
+      f = f * f * (3.0 - 2.0 * f);
+      float n = mix(
+        mix(mix(hash3(c).x, hash3(c + vec3(1, 0, 0)).x, f.x), mix(hash3(c + vec3(0, 1, 0)).x, hash3(c + vec3(1, 1, 0)).x, f.x), f.y),
+        mix(mix(hash3(c + vec3(0, 0, 1)).x, hash3(c + vec3(1, 0, 1)).x, f.x), mix(hash3(c + vec3(0, 1, 1)).x, hash3(c + vec3(1, 1, 1)).x, f.x), f.y),
+        f.z);
+      m *= 1.0 + (n - 0.5) * 0.18 * fade;
+    }
+    return m;
   }
 
   vec3 shade(vec3 up, vec3 tangentNormal, vec3 albedo, float shadow, vec3 worldPos) {
@@ -113,6 +182,7 @@ const lighting = /* glsl */ `
       n = normalize(n - detailStrength * (g - dot(g, up) * up));
     }
 
+    albedo *= albedoMottle(up);
     vec3 viewDir = normalize(cameraPosition - worldPos);
     float cosI = dot(n, sunDir);
     float cosE = max(dot(n, viewDir), 0.0);
@@ -172,10 +242,13 @@ const globeCommon = /* glsl */ `
 export const moonVertexShader = /* glsl */ `
   ${common}
   ${globeCommon}
+  ${craterField}
   uniform float heightScale;
   uniform float relief;
   uniform vec3 focus;
   uniform float density;
+  /** Vertex spacing at the grid centre, km; it grows with the warp toward the edges. */
+  uniform float centerSpacingKm;
 
   varying vec3 vUp;
   varying vec3 vWorldPos;
@@ -188,7 +261,8 @@ export const moonVertexShader = /* glsl */ `
     vec3 north;
     localAxes(focus, east, north);
     vec3 up = angle < 1e-7 ? focus : normalize(cos(angle) * focus + sin(angle) * normalize(w.x * east + w.y * north));
-    float h = globeHeight(up);
+    vec2 spread = (density + 3.0 * (1.0 - density) * g * g) / density;
+    float h = globeHeight(up) + detailHeightM(up, centerSpacingKm * max(spread.x, spread.y));
     vec4 world = modelMatrix * vec4(up * (1.0 + h * heightScale * relief), 1.0);
     vUp = up;
     vWorldPos = world.xyz;
@@ -199,6 +273,7 @@ export const moonVertexShader = /* glsl */ `
 export const moonFragmentShader = /* glsl */ `
   ${common}
   ${equirectSampling}
+  ${craterField}
   ${lighting}
   ${globeCommon}
   uniform sampler2D colorMap;
@@ -329,6 +404,9 @@ const polarCommon = /* glsl */ `
 export const polarVertexShader = /* glsl */ `
   ${common}
   ${polarCommon}
+  ${craterField}
+  /** Vertex spacing at the grid centre, km; it grows with the warp toward the edges. */
+  uniform float centerSpacingKm;
   uniform float heightScale;
   uniform float relief;
   uniform vec2 focus;
@@ -350,6 +428,8 @@ export const polarVertexShader = /* glsl */ `
     vec3 up = polarToScene(xy);
     float b = edgeBlend(xy);
     float h = b > 0.0 ? mix(heightAt(polarUv(xy)), globalHeightAt(up), b) : heightAt(polarUv(xy));
+    vec2 spread = (density + 3.0 * (1.0 - density) * g * g) / density;
+    h += detailHeightM(up, centerSpacingKm * max(spread.x, spread.y));
     vec4 world = modelMatrix * vec4(up * (1.0 + h * heightScale * relief), 1.0);
     vXY = xy;
     vUp = up;
@@ -361,6 +441,7 @@ export const polarVertexShader = /* glsl */ `
 export const polarFragmentShader = /* glsl */ `
   ${common}
   ${equirectSampling}
+  ${craterField}
   ${lighting}
   ${polarCommon}
   uniform sampler2D colorMap;

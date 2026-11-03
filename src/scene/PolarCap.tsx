@@ -97,6 +97,7 @@ export function PolarCap({ sunDir, earthDir, heightRange, polar, lighting, focus
       // From a focus at one edge, the grid must still reach the opposite edge.
       extent: { value: 2 * polar.rhoMax },
       density: { value: 1 },
+      centerSpacingKm: { value: 10 },
     }),
     [color, normal, height, globalColor, globalNormal, globalHeight, heightRange, polar, sunDir, earthDir, lighting, blendToGlobal],
   );
@@ -111,6 +112,7 @@ export function PolarCap({ sunDir, earthDir, heightRange, polar, lighting, focus
     if (f.length() > polar.rhoMax) f.setLength(polar.rhoMax);
     uniforms.focus.value.set(snapTo(f.x, step), snapTo(f.y, step));
     uniforms.density.value = density;
+    uniforms.centerSpacingKm.value = (uniforms.extent.value * density * 2 * MOON_RADIUS_KM) / SEGMENTS;
   });
 
   return (

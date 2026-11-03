@@ -1,0 +1,29 @@
+{
+  "global": {
+    "file": "data/dem_global_4ppd.bin",
+    "width": 1440,
+    "height": 720,
+    "pixelsPerDegree": 4,
+    "latTop": 90.0
+  },
+  "detailed": [
+    {
+      "file": "data/dem_south_16ppd.bin",
+      "width": 5760,
+      "height": 480,
+      "pixelsPerDegree": 16,
+      "latTop": -60.0
+    }
+  ],
+  "heightTexture": {
+    "minM": -8981.5,
+    "maxM": 10685.5
+  },
+  "polar": {
+    "edgeLat": -80.0,
+    "rhoEdge": 0.17497732705184807,
+    "rhoMax": 0.17847687359288503,
+    "heightSize": 4096
+  },
+  "source": "NASA SVS CGI Moon Kit (LRO LROC colour, LOLA elevation)"
+}

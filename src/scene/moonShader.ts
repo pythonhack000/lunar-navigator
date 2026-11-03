@@ -108,9 +108,11 @@ const lighting = /* glsl */ `
 
     vec3 color = albedo * reflectance * dayside * shadow * sunIntensity;
     color += albedo * earthshine * max(dot(n, earthDir), 0.0) * (1.0 - dayside * shadow);
-    // Not physical (space has no sky light): a faint view-facing fill, as games use, so slopes
-    // inside shadows still read as shapes instead of a flat black hole.
-    color += albedo * fillLight * (0.35 + 0.65 * cosE) * (1.0 - shadow * dayside * max(cosI, 0.0));
+    // Not physical (space has no sky light): a faint fill from above and behind the viewer, as games
+    // use, shaded by the surface normal so craters and slopes in shadow or at night keep their shape.
+    vec3 fillDir = normalize(up + viewDir);
+    float fill = 0.25 + 0.75 * max(dot(n, fillDir), 0.0);
+    color += albedo * fillLight * fill * fill * (1.0 - shadow * dayside * max(cosI, 0.0));
     return color;
   }
 `;
@@ -220,7 +222,8 @@ export const moonFragmentShader = /* glsl */ `
     float tanEl = su / horiz;
     vec3 dir = flatSun / horiz;
     float h0 = globeHeight(up) * relief + 2.0;
-    float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+    // Jitter anchored to the ground (not the screen), so shadow edges do not shimmer while moving.
+    float jitter = fract(52.9829189 * fract(dot(floor(equirectUv(toMoonFixed(up)) * vec2(32768.0, 16384.0)), vec2(0.06711056, 0.00583715))));
     float d = SHADOW_FIRST_M * (0.8 + 0.4 * jitter);
     float vis = 1.0;
     for (int i = 0; i < SHADOW_STEPS; i++) {
@@ -302,6 +305,11 @@ export const polarVertexShader = /* glsl */ `
   void main() {
     vec2 g = position.xy;
     vec2 xy = focus + g * (density + (1.0 - density) * g * g) * extent;
+    // Pin vertices that land beyond the tile onto its rim. Otherwise, when the camera looks away
+    // from the pole, huge triangles would cut chords across the sphere and smear polar texture
+    // over the rest of the Moon.
+    float rho = length(xy);
+    if (rho > rhoMax) xy *= rhoMax / rho;
     vec3 up = polarToScene(xy);
     float h = heightAt(polarUv(xy));
     vec4 world = modelMatrix * vec4(up * (1.0 + h * heightScale * relief), 1.0);
@@ -356,7 +364,8 @@ export const polarFragmentShader = /* glsl */ `
     float metresPerUv = 2.0 * rhoMax * MOON_RADIUS_M;
     float vis = 1.0;
     // Offset the march per pixel so the fixed step spacing never shows up as stepped shadow edges.
-    float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+    // Jitter anchored to the ground (not the screen), so shadow edges do not shimmer while moving.
+    float jitter = fract(52.9829189 * fract(dot(floor(polarUv(xy) * 16384.0), vec2(0.06711056, 0.00583715))));
     float d = SHADOW_FIRST_M * (0.8 + 0.4 * jitter);
     for (int i = 0; i < SHADOW_STEPS; i++) {
       vec2 uv = uv0 + dir * (d / metresPerUv);

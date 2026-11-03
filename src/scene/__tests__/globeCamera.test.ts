@@ -1,6 +1,6 @@
 import { Vector3 } from 'three';
 import { describe, expect, test } from 'vitest';
-import { approach, flightPose, maxTiltFor, moveTarget, poseToCamera, rotateHeading, withRange, withTilt, type CameraPose } from '../globeCamera';
+import { approach, flightPose, MIN_RANGE, MIN_RANGE_GLOBAL, minRangeAt, maxTiltFor, moveTarget, poseToCamera, rotateHeading, withRange, withTilt, type CameraPose } from '../globeCamera';
 
 const southPole = (): CameraPose => ({
   target: new Vector3(0, -1, 0),
@@ -93,5 +93,13 @@ describe('flightPose', () => {
     expect(mid.tilt).toBe(0);
     expect(mid.target.length()).toBeCloseTo(1);
     expect(mid.forward.dot(mid.target)).toBeCloseTo(0);
+  });
+});
+
+describe('minRangeAt', () => {
+  test('lets the camera zoom right down only over the detailed polar cap', () => {
+    const cut = Math.sin((-79.5 * Math.PI) / 180);
+    expect(minRangeAt(new Vector3(0, -1, 0), cut)).toBe(MIN_RANGE);
+    expect(minRangeAt(new Vector3(1, -1, 0).normalize(), cut)).toBe(MIN_RANGE_GLOBAL);
   });
 });

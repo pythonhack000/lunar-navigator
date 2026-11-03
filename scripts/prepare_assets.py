@@ -10,6 +10,7 @@ Inputs (https://svs.gsfc.nasa.gov/4720), best available is used:
 """
 
 import json
+from dataclasses import dataclass
 import math
 import sys
 from pathlib import Path
@@ -23,10 +24,12 @@ MOON_RADIUS_M = 1_737_400.0
 UINT_OFFSET_M = 10_000.0  # uint files are relative to 1727.4 km, 10 km below the reference sphere
 SOUTH_DETAIL_LAT = -60.0
 POLAR_EDGE_LAT = -80.0
+OUTER_EDGE_LAT = -60.0
 POLAR_MARGIN = 1.02  # the polar tile reaches a little past its edge so the seam has data on both sides
 POLAR_SIZE = 4096
 MIN_PIXEL_WIDTH_M = 200.0  # keeps normals sane where meridians converge at the poles
 GLOBAL_HEIGHT_SIZE = (4096, 2048)
+NORMAL_BLOCK = 3  # 64 px/deg averaged 3x3: ~1.4 km normals, 7680 px wide
 GLOBAL_BLOCK = 5  # 64 px/deg averaged 5x5 before resizing: no aliasing, bounded memory
 POLAR_HEIGHT_SIZE = 4096
 POLAR_NORMAL_SIZE = 6144
@@ -105,25 +108,36 @@ def polar_grid(rows: slice, size: int, rho_max: float):
 
 # ---------- LOLA polar stereographic DEM (PDS) ----------
 
-PDS_POLAR_FILE = "ldem_80s_80m.img"
-PDS_POLAR_SIZE = 7600
-PDS_POLAR_SCALE_M = 80.0
-PDS_POLAR_CENTRE = 3799.5
 PDS_DN_TO_M = 0.5
 CALIBRATION_SIZE = 256
 
 
-def pds_sampler(dem: np.ndarray, variant: tuple[bool, int, int]):
+@dataclass(frozen=True)
+class PdsSpec:
+    """A LOLA polar stereographic elevation map from NASA PDS (values from its .lbl file)."""
+
+    file: str
+    size: int
+    scale_m: float
+    centre: float
+
+
+PDS_80S = PdsSpec("ldem_80s_80m.img", 7600, 80.0, 3799.5)
+PDS_60S = PdsSpec("ldem_60s_240m.img", 7760, 240.0, 3879.5)
+
+
+def pds_sampler(dem: np.ndarray, variant: tuple[bool, int, int], spec: PdsSpec):
     """Bilinear sampler of the PDS grid for tile-plane metres (x toward 0°E, y toward 90°E)."""
     swap, sx, sy = variant
+    last = spec.size - 1
 
     def sample(x_m: np.ndarray, y_m: np.ndarray) -> np.ndarray:
         a, b = (y_m, x_m) if swap else (x_m, y_m)
-        col = sx * a / PDS_POLAR_SCALE_M + PDS_POLAR_CENTRE
-        row = sy * b / PDS_POLAR_SCALE_M + PDS_POLAR_CENTRE
-        inside = (col >= 0) & (col <= PDS_POLAR_SIZE - 1) & (row >= 0) & (row <= PDS_POLAR_SIZE - 1)
-        col = np.clip(col, 0, PDS_POLAR_SIZE - 1.001)
-        row = np.clip(row, 0, PDS_POLAR_SIZE - 1.001)
+        col = sx * a / spec.scale_m + spec.centre
+        row = sy * b / spec.scale_m + spec.centre
+        inside = (col >= 0) & (col <= last) & (row >= 0) & (row <= last)
+        col = np.clip(col, 0, last - 0.001)
+        row = np.clip(row, 0, last - 0.001)
         c0 = np.floor(col).astype(np.int64)
         r0 = np.floor(row).astype(np.int64)
         tc = (col - c0).astype(np.float32)
@@ -141,7 +155,7 @@ def tile_metres(size: int, rho_max: float, rows: slice):
     return np.broadcast_arrays(coords[None, :], -coords[rows][:, None])
 
 
-def calibrate_pds(dem: np.ndarray, reference: np.ndarray, rho_max: float):
+def calibrate_pds(dem: np.ndarray, reference: np.ndarray, rho_max: float, spec: PdsSpec):
     """Picks the axis orientation of the PDS grid that best matches the equirectangular LOLA data."""
     ref = np.asarray(Image.fromarray(reference, "F").resize((CALIBRATION_SIZE,) * 2, Image.BILINEAR))
     x_m, y_m = tile_metres(CALIBRATION_SIZE, rho_max, slice(0, CALIBRATION_SIZE))
@@ -149,19 +163,19 @@ def calibrate_pds(dem: np.ndarray, reference: np.ndarray, rho_max: float):
     for swap in (False, True):
         for sx in (1, -1):
             for sy in (1, -1):
-                values, inside = pds_sampler(dem, (swap, sx, sy))(x_m, y_m)
+                values, inside = pds_sampler(dem, (swap, sx, sy), spec)(x_m, y_m)
                 corr = np.corrcoef(values[inside], ref[inside])[0, 1]
                 if best is None or corr > best[0]:
                     best = (corr, (swap, sx, sy))
-    print(f"PDS orientation {best[1]} correlation {best[0]:.4f}")
+    print(f"{spec.file}: orientation {best[1]} correlation {best[0]:.4f}")
     if best[0] < 0.95:
         raise ValueError("could not match the PDS polar grid to the global LOLA data")
     return best[1]
 
 
-def resample_pds(dem: np.ndarray, variant, size: int, rho_max: float, fallback: np.ndarray) -> np.ndarray:
+def resample_pds(dem: np.ndarray, variant, size: int, rho_max: float, fallback: np.ndarray, spec: PdsSpec) -> np.ndarray:
     """PDS heights on the tile grid; corners outside its coverage keep the equirectangular values."""
-    sample = pds_sampler(dem, variant)
+    sample = pds_sampler(dem, variant, spec)
     fill = np.asarray(Image.fromarray(fallback, "F").resize((size, size), Image.BILINEAR))
     out = np.empty((size, size), dtype=np.float32)
     for start in range(0, size, CHUNK_ROWS):
@@ -290,43 +304,25 @@ def main(src: Path) -> None:
     dem4 = dem_metres(np.asarray(tiff_array(src / "ldem_4_uint.tif", "<u2")))
     lo, hi = float(dem16.min()), float(dem16.max())
 
-    global_normal_map(dem16).save(tex / "moon_normal_6k.jpg", quality=92)
     dem64_path = src / "ldem_64_uint.tif"
+    normal_source = block_mean(tiff_array(dem64_path, "<u2"), NORMAL_BLOCK) if dem64_path.exists() else dem16
+    global_normal_map(normal_source).save(tex / "moon_normal_8k.jpg", quality=90)
     global_source = block_mean(tiff_array(dem64_path, "<u2"), GLOBAL_BLOCK) if dem64_path.exists() else dem16
     height_img = Image.fromarray(global_source, "F").resize(GLOBAL_HEIGHT_SIZE, Image.BILINEAR)
     encode_height(np.asarray(height_img), lo, hi).save(tex / "moon_height_4k.png", optimize=True)
 
-    # South polar tile: the best elevation available, reprojected so the pole has no pinch.
-    rho_edge = stereo_radius(POLAR_EDGE_LAT)
-    rho_max = rho_edge * POLAR_MARGIN
-    band_lat = POLAR_EDGE_LAT + 1.5  # a little north of the tile corners
-    dem_hi_path = src / "ldem_64_uint.tif"
-    dem_source = tiff_array(dem_hi_path, "<u2") if dem_hi_path.exists() else tiff_array(src / "ldem_16_uint.tif", "<u2")
-    raw_band, band_top = south_band(dem_source, band_lat)
-    print("polar elevation:", "ldem_64" if dem_hi_path.exists() else "ldem_16", raw_band.shape)
-    polar_heights = resample_polar(dem_metres(raw_band), rho_max, band_top)
-    pds_path = src / PDS_POLAR_FILE
-    if pds_path.exists():
-        pds = np.memmap(pds_path, dtype="<i2", mode="r", shape=(PDS_POLAR_SIZE, PDS_POLAR_SIZE))
-        variant = calibrate_pds(pds, polar_heights, rho_max)
-        detail_heights = resample_pds(pds, variant, POLAR_NORMAL_SIZE, rho_max, polar_heights)
-        print("polar detail: LOLA LDEM_80S_80M")
-    else:
-        detail_heights = np.asarray(Image.fromarray(polar_heights, "F").resize((POLAR_NORMAL_SIZE,) * 2, Image.BILINEAR))
-    polar_height_img = Image.fromarray(detail_heights, "F").resize((POLAR_HEIGHT_SIZE,) * 2, Image.BILINEAR)
-    encode_height(np.asarray(polar_height_img), lo, hi).save(tex / "south_height_4k.png", optimize=True)
-    polar_normal_map(detail_heights, rho_max).save(tex / "south_normal_6k.jpg", quality=90)
-    color_band, color_top = south_band(color, band_lat)
-    polar_color = resample_polar(color_band.astype(np.float32), rho_max, color_top, channels=3)
-    polar_rgb = fill_dark_albedo(np.clip(polar_color, 0, 255).astype(np.uint8))
-    Image.fromarray(polar_rgb, "RGB").save(tex / "south_color_4k.jpg", quality=90)
+    dem_hi = tiff_array(dem64_path, "<u2") if dem64_path.exists() else tiff_array(src / "ldem_16_uint.tif", "<u2")
+    tile = lambda name, edge, spec, inner: build_polar_tile(src, tex, name, edge, spec, inner, dem_hi, color, (lo, hi))
+    polar = tile("south", POLAR_EDGE_LAT, PDS_80S, 0.0)
+    polar_outer = tile("south60", OUTER_EDGE_LAT, PDS_60S, polar["rhoEdge"]) if (src / PDS_60S.file).exists() else None
 
     south_rows = int((90.0 - SOUTH_DETAIL_LAT) * 16)
     manifest = {
         "global": write_grid(dem4, "dem_global_4ppd.bin", 4, 90.0),
         "detailed": [write_grid(dem16[south_rows:], "dem_south_16ppd.bin", 16, SOUTH_DETAIL_LAT)],
         "heightTexture": {"minM": lo, "maxM": hi},
-        "polar": {"edgeLat": POLAR_EDGE_LAT, "rhoEdge": rho_edge, "rhoMax": rho_max, "heightSize": POLAR_HEIGHT_SIZE},
+        "polar": polar,
+        **({"polarOuter": polar_outer} if polar_outer else {}),
         "source": "NASA SVS CGI Moon Kit (LRO LROC colour, LOLA elevation)",
     }
     (PUBLIC / "data/manifest.json").write_text(json.dumps(manifest, indent=2))
@@ -335,9 +331,49 @@ def main(src: Path) -> None:
     if earth.exists():
         Image.open(earth).convert("RGB").resize((2048, 1024), Image.LANCZOS).save(tex / "earth_2k.jpg", quality=88)
 
-    for stale in ["moon_normal_4k.jpg", "moon_height_2k.png", "south_height_2k.png", "south_normal_4k.jpg", "moon_color_2k.jpg"]:
+    for stale in ["moon_normal_6k.jpg", "moon_normal_4k.jpg", "moon_height_2k.png", "south_height_2k.png", "south_normal_4k.jpg", "moon_color_2k.jpg"]:
         (tex / stale).unlink(missing_ok=True)
     print(json.dumps(manifest, indent=2))
+
+
+def build_polar_tile(src: Path, tex: Path, name: str, edge_lat: float, spec: PdsSpec, inner_rho: float,
+                     dem_hi: np.ndarray, color: np.ndarray, height_range: tuple[float, float]) -> dict:
+    """
+    A south polar stereographic tile down from `edge_lat`: heights, normals and colour, built from the
+    PDS polar map when present (orientation matched against the equirectangular LOLA data).
+    """
+    lo, hi = height_range
+    rho_edge = stereo_radius(edge_lat)
+    rho_max = rho_edge * POLAR_MARGIN
+    # Source rows down from a little north of the tile corners (the corners reach furthest from the pole).
+    corner_lat = math.degrees(2 * math.atan(rho_max * math.sqrt(2) / 2)) - 90.0
+    band_lat = corner_lat + 0.5
+    raw_band, band_top = south_band(dem_hi, band_lat)
+    reference = resample_polar(dem_metres(raw_band), rho_max, band_top)
+    pds_path = src / spec.file
+    if pds_path.exists():
+        pds = np.memmap(pds_path, dtype="<i2", mode="r", shape=(spec.size, spec.size))
+        variant = calibrate_pds(pds, reference, rho_max, spec)
+        detail = resample_pds(pds, variant, POLAR_NORMAL_SIZE, rho_max, reference, spec)
+        print(f"{name}: detail from {spec.file}")
+    else:
+        detail = np.asarray(Image.fromarray(reference, "F").resize((POLAR_NORMAL_SIZE,) * 2, Image.BILINEAR))
+    height_img = Image.fromarray(detail, "F").resize((POLAR_HEIGHT_SIZE,) * 2, Image.BILINEAR)
+    encode_height(np.asarray(height_img), lo, hi).save(tex / f"{name}_height_4k.png", optimize=True)
+    polar_normal_map(detail, rho_max).save(tex / f"{name}_normal_6k.jpg", quality=90)
+    color_band, color_top = south_band(color, band_lat)
+    rgb = resample_polar(color_band.astype(np.float32), rho_max, color_top, channels=3)
+    Image.fromarray(fill_dark_albedo(np.clip(rgb, 0, 255).astype(np.uint8)), "RGB").save(
+        tex / f"{name}_color_4k.jpg", quality=90
+    )
+    return {
+        "name": name,
+        "edgeLat": edge_lat,
+        "rhoEdge": rho_edge,
+        "rhoMax": rho_max,
+        "innerRho": inner_rho,
+        "heightSize": POLAR_HEIGHT_SIZE,
+    }
 
 
 def write_grid(heights: np.ndarray, name: str, ppd: int, lat_top: float) -> dict:

@@ -23,6 +23,8 @@ export interface CameraFocus {
 }
 
 export const MIN_RANGE = 0.004; // ~7 km
+/** Outside the detailed polar map the global data is ~2.6 km per sample; stop before it turns to mush. */
+export const MIN_RANGE_GLOBAL = 0.026; // ~45 km
 export const MAX_RANGE = 5;
 const MAX_TILT_CLOSE = MathUtils.degToRad(84);
 /** Tilt is allowed close in and fades out while zooming out, so the far view is the whole globe. */
@@ -77,8 +79,13 @@ export function rotateHeading(p: CameraPose, angle: number): CameraPose {
   return { ...clonePose(p), forward: p.forward.clone().applyQuaternion(q).normalize() };
 }
 
-export function withRange(p: CameraPose, range: number): CameraPose {
-  const r = MathUtils.clamp(range, MIN_RANGE, MAX_RANGE);
+/** Closest zoom over `target`: full depth inside the detailed polar cap (scene axes: -Y is south). */
+export function minRangeAt(target: Vector3, polarCutY: number): number {
+  return target.y < polarCutY ? MIN_RANGE : MIN_RANGE_GLOBAL;
+}
+
+export function withRange(p: CameraPose, range: number, minRange = MIN_RANGE): CameraPose {
+  const r = MathUtils.clamp(range, minRange, MAX_RANGE);
   return { ...clonePose(p), range: r, tilt: Math.min(p.tilt, maxTiltFor(r)) };
 }
 
@@ -129,3 +136,18 @@ export function flightPose(from: CameraPose, to: CameraPose, e: number): CameraP
   const tilt = Math.min(MathUtils.lerp(from.tilt, to.tilt, e) * level, maxTiltFor(range));
   return { target, forward, range, tilt };
 }
+
+/**
+ * Grid density for a camera range, in power-of-two steps between `min` and 1. Stepping (instead of
+ * following the zoom smoothly) keeps vertices still while zooming within a level.
+ */
+export function steppedDensity(range: number, perRange: number, min: number): number {
+  const raw = MathUtils.clamp(range * perRange, min, 1);
+  return Math.min(1, min * Math.pow(2, Math.round(Math.log2(raw / min))));
+}
+
+/** Snaps `value` to a multiple of `step`, so a moving focus only shifts the grid by whole cells. */
+export const snapTo = (value: number, step: number): number => Math.round(value / step) * step;
+
+/** How many centre cells the grid waits before following the camera. */
+export const SNAP_CELLS = 16;

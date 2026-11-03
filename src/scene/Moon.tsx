@@ -3,7 +3,8 @@ import { useFrame } from '@react-three/fiber';
 import { useMemo } from 'react';
 import { MathUtils, PlaneGeometry, Vector2, Vector3 } from 'three';
 import { MOON_RADIUS_KM } from '../lib/ephemeris';
-import type { CameraFocus } from './globeCamera';
+import { fromThree, toThree } from './coords';
+import { snapTo, SNAP_CELLS, steppedDensity, type CameraFocus } from './globeCamera';
 import { moonFragmentShader, moonVertexShader } from './moonShader';
 import { prepareTerrainSet, textureUrl } from './moonTextures';
 import type { MoonLighting } from './PolarCap';
@@ -30,7 +31,7 @@ const noRaycast = () => null;
 
 export function Moon({ sunDir, earthDir, heightRange, polarEdgeLat, lighting, focus }: MoonProps) {
   const [color, normal, height] = useTexture(
-    [textureUrl('moon_color_8k.jpg'), textureUrl('moon_normal_6k.jpg'), textureUrl('moon_height_4k.png')],
+    [textureUrl('moon_color_8k.jpg'), textureUrl('moon_normal_8k.jpg'), textureUrl('moon_height_4k.png')],
     prepareTerrainSet,
   );
 
@@ -64,8 +65,16 @@ export function Moon({ sunDir, earthDir, heightRange, polarEdgeLat, lighting, fo
   );
 
   useFrame(() => {
-    uniforms.focus.value.copy(focus.target);
-    uniforms.density.value = MathUtils.clamp(focus.range * DENSITY_PER_RANGE, MIN_DENSITY, 1);
+    const density = steppedDensity(focus.range, DENSITY_PER_RANGE, MIN_DENSITY);
+    // Move the grid only in whole multiples of its centre cell (as latitude/longitude steps) so
+    // vertices do not slide over the terrain while the camera pans.
+    const step = ((Math.PI * density * 2) / SEGMENTS) * SNAP_CELLS;
+    const [x, y, z] = fromThree(focus.target);
+    const lat = snapTo(Math.asin(MathUtils.clamp(z, -1, 1)), step);
+    const lonStep = step / Math.max(Math.cos(lat), 0.05);
+    const lon = snapTo(Math.atan2(y, x), lonStep);
+    uniforms.focus.value.copy(toThree([Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat)]));
+    uniforms.density.value = density;
   });
 
   // Picking intersects an analytic sphere in CameraRig, so the mesh itself is never ray-cast.

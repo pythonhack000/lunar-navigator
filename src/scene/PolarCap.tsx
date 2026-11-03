@@ -1,11 +1,11 @@
 import { useTexture } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useMemo } from 'react';
-import { DoubleSide, MathUtils, PlaneGeometry, Vector2, type Vector3 } from 'three';
+import { DoubleSide, PlaneGeometry, Vector2, type Vector3 } from 'three';
 import { MOON_RADIUS_KM } from '../lib/ephemeris';
 import type { PolarTile } from '../lib/loadTerrain';
 import { fromThree } from './coords';
-import type { CameraFocus } from './globeCamera';
+import { snapTo, SNAP_CELLS, steppedDensity, type CameraFocus } from './globeCamera';
 import { polarFragmentShader, polarVertexShader } from './moonShader';
 import { prepareTerrainSet, textureUrl } from './moonTextures';
 
@@ -31,7 +31,6 @@ export interface MoonLighting {
 /** Vertices are packed around the camera's focus: ~50–100 m apart there, kilometres at the far edge. */
 const SEGMENTS = 1024;
 const MIN_DENSITY = 0.035;
-const MAX_DENSITY = 1;
 /** How quickly the grid relaxes toward uniform as the camera pulls back. */
 const DENSITY_PER_RANGE = 0.5;
 const SUN_RADIUS_RAD = (0.267 * Math.PI) / 180;
@@ -73,7 +72,7 @@ export function PolarCap({ sunDir, earthDir, heightRange, polar, lighting, focus
       focus: { value: new Vector2() },
       // From a focus at one edge, the grid must still reach the opposite edge.
       extent: { value: 2 * polar.rhoMax },
-      density: { value: MAX_DENSITY },
+      density: { value: 1 },
     }),
     [color, normal, height, heightRange, polar, sunDir, earthDir, lighting],
   );
@@ -81,9 +80,13 @@ export function PolarCap({ sunDir, earthDir, heightRange, polar, lighting, focus
   useFrame(() => {
     // Polar stereographic position of the focus, kept inside the tile.
     const [x, y, z] = fromThree(focus.target);
-    const f = uniforms.focus.value.set((2 * x) / (1 - z), (2 * y) / (1 - z));
+    const density = steppedDensity(focus.range, DENSITY_PER_RANGE, MIN_DENSITY);
+    // Move the grid only in whole multiples of its centre cell so vertices do not slide over the terrain.
+    const step = ((uniforms.extent.value * density * 2) / SEGMENTS) * SNAP_CELLS;
+    const f = new Vector2((2 * x) / (1 - z), (2 * y) / (1 - z));
     if (f.length() > polar.rhoMax) f.setLength(polar.rhoMax);
-    uniforms.density.value = MathUtils.clamp(focus.range * DENSITY_PER_RANGE, MIN_DENSITY, MAX_DENSITY);
+    uniforms.focus.value.set(snapTo(f.x, step), snapTo(f.y, step));
+    uniforms.density.value = density;
   });
 
   return (

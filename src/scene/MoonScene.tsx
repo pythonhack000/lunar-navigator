@@ -27,7 +27,7 @@ interface MoonSceneProps {
 const SUN_DISTANCE = 1500;
 const STAR_RADIUS = 3000;
 const SUN_RADIUS_DEG = 0.267;
-const BASE_LIGHTING = { sunIntensity: 2.8, earthshine: 0.035, bumpStrength: 1.6, fillLight: 0.065 };
+const BASE_LIGHTING = { sunIntensity: 2.8, earthshine: 0.06, bumpStrength: 1.6, fillLight: 0.09 };
 
 /** Moves the Sun, Earth and light directions with the simulated clock, without React re-renders. */
 function SkySync({ sky }: { sky: SkyState }) {
@@ -95,7 +95,7 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, terrain, 
       {others.map((c) => (
         <SiteMarker key={siteKey(c)} lat={c.lat} lon={c.lon} label={c.name} isPrimary={false} />
       ))}
-      <CameraRig lat={site.lat} lon={site.lon} sunDir={sky.sunDir} isGlobeView={isGlobeView} terrain={terrain} relief={relief} focus={focus} onPick={onPick} />
+      <CameraRig lat={site.lat} lon={site.lon} sunDir={sky.sunDir} isGlobeView={isGlobeView} terrain={terrain} relief={relief} focus={focus} polarEdgeLat={polar.edgeLat} onPick={onPick} />
       <EffectComposer>
         <Bloom intensity={0.9} luminanceThreshold={0.95} luminanceSmoothing={0.2} mipmapBlur />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />

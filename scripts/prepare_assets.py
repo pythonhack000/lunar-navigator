@@ -26,7 +26,8 @@ POLAR_EDGE_LAT = -80.0
 POLAR_MARGIN = 1.02  # the polar tile reaches a little past its edge so the seam has data on both sides
 POLAR_SIZE = 4096
 MIN_PIXEL_WIDTH_M = 200.0  # keeps normals sane where meridians converge at the poles
-GLOBAL_HEIGHT_SIZE = (2048, 1024)
+GLOBAL_HEIGHT_SIZE = (4096, 2048)
+GLOBAL_BLOCK = 5  # 64 px/deg averaged 5x5 before resizing: no aliasing, bounded memory
 POLAR_HEIGHT_SIZE = 4096
 POLAR_NORMAL_SIZE = 6144
 CHUNK_ROWS = 512
@@ -218,6 +219,18 @@ def normals_rgb(d_east: np.ndarray, d_north: np.ndarray) -> np.ndarray:
     return np.round((n * 0.5 + 0.5) * 255).astype(np.uint8)
 
 
+def block_mean(raw: np.ndarray, block: int) -> np.ndarray:
+    """Averages `block`x`block` cells of a (memory-mapped) uint16 DEM into metres, a strip at a time."""
+    rows, cols = raw.shape[0] // block, raw.shape[1] // block
+    out = np.empty((rows, cols), dtype=np.float32)
+    strip = 256
+    for r in range(0, rows, strip):
+        chunk = dem_metres(np.asarray(raw[r * block : (r + strip) * block, : cols * block]))
+        n = chunk.shape[0] // block
+        out[r : r + n] = chunk.reshape(n, block, cols, block).mean(axis=(1, 3))
+    return out
+
+
 def global_normal_map(heights: np.ndarray) -> Image.Image:
     rows, cols = heights.shape
     lat = 90.0 - (np.arange(rows) + 0.5) * 180.0 / rows
@@ -278,8 +291,10 @@ def main(src: Path) -> None:
     lo, hi = float(dem16.min()), float(dem16.max())
 
     global_normal_map(dem16).save(tex / "moon_normal_6k.jpg", quality=92)
-    height_img = Image.fromarray(dem16, "F").resize(GLOBAL_HEIGHT_SIZE, Image.BILINEAR)
-    encode_height(np.asarray(height_img), lo, hi).save(tex / "moon_height_2k.png", optimize=True)
+    dem64_path = src / "ldem_64_uint.tif"
+    global_source = block_mean(tiff_array(dem64_path, "<u2"), GLOBAL_BLOCK) if dem64_path.exists() else dem16
+    height_img = Image.fromarray(global_source, "F").resize(GLOBAL_HEIGHT_SIZE, Image.BILINEAR)
+    encode_height(np.asarray(height_img), lo, hi).save(tex / "moon_height_4k.png", optimize=True)
 
     # South polar tile: the best elevation available, reprojected so the pole has no pinch.
     rho_edge = stereo_radius(POLAR_EDGE_LAT)
@@ -320,7 +335,7 @@ def main(src: Path) -> None:
     if earth.exists():
         Image.open(earth).convert("RGB").resize((2048, 1024), Image.LANCZOS).save(tex / "earth_2k.jpg", quality=88)
 
-    for stale in ["moon_normal_4k.jpg", "moon_height_4k.png", "south_height_2k.png", "south_normal_4k.jpg", "moon_color_2k.jpg"]:
+    for stale in ["moon_normal_4k.jpg", "moon_height_2k.png", "south_height_2k.png", "south_normal_4k.jpg", "moon_color_2k.jpg"]:
         (tex / stale).unlink(missing_ok=True)
     print(json.dumps(manifest, indent=2))
 

@@ -86,6 +86,7 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, terrain, 
           heightRange={heightRange}
           polarEdgeLat={polar.edgeLat}
           lighting={lighting}
+          focus={focus}
         />
         <PolarCap sunDir={sky.sunDir} earthDir={sky.earthDir} heightRange={heightRange} polar={polar} lighting={lighting} focus={focus} />
         <Earth sky={sky} radius={EARTH_RADIUS_KM / MOON_RADIUS_KM} />

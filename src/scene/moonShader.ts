@@ -115,22 +115,61 @@ const lighting = /* glsl */ `
   }
 `;
 
-// ---------------------------------------------------------------- global sphere
+// ---------------------------------------------------------------- whole Moon
 
-export const moonVertexShader = /* glsl */ `
-  ${common}
+/**
+ * The whole-Moon mesh is one grid laid out around `focus` (the point the camera looks at) in an
+ * azimuthal equidistant projection: vertices crowd near the focus and thin out toward the far
+ * side, like a game terrain LOD. Heights come from the LOLA equirectangular map.
+ */
+const globeCommon = /* glsl */ `
   uniform sampler2D heightMap;
   uniform float heightMin;
   uniform float heightRange;
+  uniform vec2 heightSize;
+
+  vec2 equirectUv(vec3 p) {
+    return vec2(atan(p.y, p.x) / (2.0 * PI) + 0.5, asin(clamp(p.z, -1.0, 1.0)) / PI + 0.5);
+  }
+
+  /** Bilinear LOLA height in metres under a scene-space direction; longitude wraps. */
+  float globeHeight(vec3 up) {
+    vec2 f = equirectUv(toMoonFixed(up)) * heightSize - 0.5;
+    vec2 i = floor(f);
+    vec2 t = f - i;
+    int w = int(heightSize.x);
+    int x0 = int(mod(i.x, heightSize.x));
+    int x1 = (x0 + 1) % w;
+    int y0 = clamp(int(i.y), 0, int(heightSize.y) - 1);
+    int y1 = min(y0 + 1, int(heightSize.y) - 1);
+    float h00 = decodeHeight(texelFetch(heightMap, ivec2(x0, y0), 0));
+    float h10 = decodeHeight(texelFetch(heightMap, ivec2(x1, y0), 0));
+    float h01 = decodeHeight(texelFetch(heightMap, ivec2(x0, y1), 0));
+    float h11 = decodeHeight(texelFetch(heightMap, ivec2(x1, y1), 0));
+    return mix(mix(h00, h10, t.x), mix(h01, h11, t.x), t.y) * heightRange + heightMin;
+  }
+`;
+
+export const moonVertexShader = /* glsl */ `
+  ${common}
+  ${globeCommon}
   uniform float heightScale;
   uniform float relief;
+  uniform vec3 focus;
+  uniform float density;
 
   varying vec3 vUp;
   varying vec3 vWorldPos;
 
   void main() {
-    vec3 up = normalize(position);
-    float h = decodeHeight(textureLod(heightMap, uv, 0.0)) * heightRange + heightMin;
+    vec2 g = position.xy;
+    vec2 w = g * (density + (1.0 - density) * g * g) * PI;
+    float angle = min(length(w), PI);
+    vec3 east;
+    vec3 north;
+    localAxes(focus, east, north);
+    vec3 up = angle < 1e-7 ? focus : normalize(cos(angle) * focus + sin(angle) * normalize(w.x * east + w.y * north));
+    float h = globeHeight(up);
     vec4 world = modelMatrix * vec4(up * (1.0 + h * heightScale * relief), 1.0);
     vUp = up;
     vWorldPos = world.xyz;
@@ -141,12 +180,20 @@ export const moonVertexShader = /* glsl */ `
 export const moonFragmentShader = /* glsl */ `
   ${common}
   ${lighting}
+  ${globeCommon}
   uniform sampler2D colorMap;
   uniform sampler2D normalMap;
   uniform float polarCutZ;
+  uniform float sunRadius;
 
   varying vec3 vUp;
   varying vec3 vWorldPos;
+
+  const int SHADOW_STEPS = 26;
+  const float SHADOW_FIRST_M = 1300.0; // about half a height-map pixel
+  const float SHADOW_GROWTH = 1.27;
+  /** Above this Sun elevation (sine) cast shadows are too short to see at this data resolution. */
+  const float SHADOW_MAX_SUN = 0.35;
 
   /** Samples an equirectangular map without the mip seam where longitude wraps. */
   vec4 sampleEquirect(sampler2D tex, vec2 uv) {
@@ -162,14 +209,40 @@ export const moonFragmentShader = /* glsl */ `
     return textureGrad(tex, uv, dx, dy);
   }
 
+  /** Share of the solar disc visible here: march along the ground toward the Sun. */
+  float sunVisibility(vec3 up) {
+    float su = dot(sunDir, up);
+    if (su <= -0.05) return 0.0;
+    if (su >= SHADOW_MAX_SUN) return 1.0;
+    vec3 flatSun = sunDir - su * up;
+    float horiz = length(flatSun);
+    if (horiz < 1e-6) return 1.0;
+    float tanEl = su / horiz;
+    vec3 dir = flatSun / horiz;
+    float h0 = globeHeight(up) * relief + 2.0;
+    float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+    float d = SHADOW_FIRST_M * (0.8 + 0.4 * jitter);
+    float vis = 1.0;
+    for (int i = 0; i < SHADOW_STEPS; i++) {
+      float a = d / MOON_RADIUS_M;
+      vec3 q = normalize(up * cos(a) + dir * sin(a));
+      float beam = h0 + d * tanEl + d * d / (2.0 * MOON_RADIUS_M);
+      float blockAngle = (globeHeight(q) * relief - beam) / d;
+      vis = min(vis, clamp(0.5 - blockAngle / (2.0 * sunRadius), 0.0, 1.0));
+      if (vis <= 0.0) break;
+      d *= SHADOW_GROWTH;
+    }
+    return vis;
+  }
+
   void main() {
     vec3 up = normalize(vUp);
     vec3 p = toMoonFixed(up);
     if (p.z < polarCutZ) discard; // the polar cap draws this part
-    vec2 uv = vec2(atan(p.y, p.x) / (2.0 * PI) + 0.5, asin(clamp(p.z, -1.0, 1.0)) / PI + 0.5);
+    vec2 uv = equirectUv(p);
     vec3 albedo = sampleEquirect(colorMap, uv).rgb;
     vec3 tangentNormal = sampleEquirect(normalMap, uv).xyz * 2.0 - 1.0;
-    gl_FragColor = vec4(shade(up, tangentNormal, albedo, 1.0, vWorldPos), 1.0);
+    gl_FragColor = vec4(shade(up, tangentNormal, albedo, sunVisibility(up), vWorldPos), 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
@@ -284,7 +357,7 @@ export const polarFragmentShader = /* glsl */ `
     float vis = 1.0;
     // Offset the march per pixel so the fixed step spacing never shows up as stepped shadow edges.
     float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-    float d = SHADOW_FIRST_M * (0.5 + jitter);
+    float d = SHADOW_FIRST_M * (0.8 + 0.4 * jitter);
     for (int i = 0; i < SHADOW_STEPS; i++) {
       vec2 uv = uv0 + dir * (d / metresPerUv);
       if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) break;

@@ -23,8 +23,8 @@ export interface CameraFocus {
 }
 
 export const MIN_RANGE = 0.004; // ~7 km
-/** Outside the detailed polar map the global data is ~2.6 km per sample; stop before it turns to mush. */
-export const MIN_RANGE_GLOBAL = 0.026; // ~45 km
+/** Outside the polar maps the streamed LOLA tiles are ~950 m per height sample; stop before that blurs. */
+export const MIN_RANGE_GLOBAL = 0.012; // ~21 km
 /** In the 240 m ring around the pole. */
 export const MIN_RANGE_OUTER = 0.008; // ~14 km
 export const MAX_RANGE = 5;

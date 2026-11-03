@@ -4,7 +4,7 @@ import { ToneMappingMode } from 'postprocessing';
 import { memo, Suspense, useMemo } from 'react';
 import { PerspectiveCamera, Vector3 } from 'three';
 import { EARTH_RADIUS_KM, MOON_RADIUS_KM } from '../lib/ephemeris';
-import type { PolarTile } from '../lib/loadTerrain';
+import type { PolarTile, TileGridSpec } from '../lib/loadTerrain';
 import type { Terrain } from '../lib/terrain';
 import { siteKey, useNavigator, type SelectedSite } from '../state/store';
 import { CameraRig } from './CameraRig';
@@ -20,6 +20,7 @@ interface MoonSceneProps {
   heightRange: { minM: number; maxM: number };
   polar: PolarTile;
   polarOuter?: PolarTile;
+  tiles?: TileGridSpec;
   terrain: Terrain;
   onPick: (lat: number, lon: number) => void;
 }
@@ -54,7 +55,7 @@ function NearPlaneTuning() {
 }
 
 /** Memoised: the panels re-render several times a second while time plays, the 3D scene must not. */
-export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOuter, terrain, onPick }: MoonSceneProps) {
+export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOuter, tiles, terrain, onPick }: MoonSceneProps) {
   const site = useNavigator((s) => s.site);
   const compare = useNavigator((s) => s.compare);
   const isGlobeView = useNavigator((s) => s.isGlobeView);
@@ -87,6 +88,7 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOute
           heightRange={heightRange}
           polar={polar}
           polarOuter={polarOuter}
+          tiles={tiles}
           lighting={lighting}
           focus={focus}
         />

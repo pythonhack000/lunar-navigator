@@ -35,6 +35,7 @@ function Navigator({ loaded }: Props) {
             heightRange={loaded.manifest.heightTexture}
             polar={loaded.manifest.polar}
             polarOuter={loaded.manifest.polarOuter}
+            tiles={loaded.manifest.tiles}
             terrain={loaded.terrain}
             onPick={handlePick}
           />

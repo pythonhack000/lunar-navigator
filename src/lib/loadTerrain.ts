@@ -21,6 +21,16 @@ export interface PolarTile {
   heightSize: number;
 }
 
+/** LOLA detail tiles streamed around the camera (see scripts/make_tiles.py). */
+export interface TileGridSpec {
+  deg: number;
+  heightPx: number;
+  normalPx: number;
+  firstBand: number;
+  bands: number;
+  cols: number;
+}
+
 export interface TerrainManifest {
   global: GridEntry;
   detailed: GridEntry[];
@@ -28,6 +38,7 @@ export interface TerrainManifest {
   polar: PolarTile;
   /** Optional ring of medium detail around the inner polar tile. */
   polarOuter?: PolarTile;
+  tiles?: TileGridSpec;
 }
 
 export interface LoadedTerrain {
@@ -64,7 +75,16 @@ function parseManifest(value: unknown): TerrainManifest {
     heightTexture: { minM: heightTexture.minM, maxM: heightTexture.maxM },
     polar,
     ...(polarOuter ? { polarOuter } : {}),
+    ...(parseTiles(v.tiles) ? { tiles: parseTiles(v.tiles)! } : {}),
   };
+}
+
+function parseTiles(value: unknown): TileGridSpec | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const t = value as Record<string, unknown>;
+  const keys = ['deg', 'heightPx', 'normalPx', 'firstBand', 'bands', 'cols'] as const;
+  if (!keys.every((k) => Number.isInteger(t[k]) && (t[k] as number) > 0)) return null;
+  return { deg: t.deg as number, heightPx: t.heightPx as number, normalPx: t.normalPx as number, firstBand: t.firstBand as number, bands: t.bands as number, cols: t.cols as number };
 }
 
 function parsePolarTile(value: unknown): PolarTile | null {

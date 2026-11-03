@@ -223,6 +223,14 @@ const terrainData = /* glsl */ `
   uniform float outerRhoMax;
   uniform float outerRhoEdge;
   uniform float hasOuter;
+  /** Streamed LOLA detail tiles (3x3 block of 10° tiles) around the camera; see detailAtlas.ts. */
+  uniform sampler2D atlasHeightMap;
+  uniform vec2 atlasOrigin;
+  uniform float atlasSpan;
+  uniform float atlasHeightSize;
+  uniform float hasAtlas;
+  /** Fade-in band at the atlas edge, as a fraction of its span. */
+  const float ATLAS_BLEND = 0.12;
   /** Width of each blend between sources, as a fraction of the tile radius. */
   const float BLEND_FRACTION = 0.06;
 
@@ -259,7 +267,30 @@ const terrainData = /* glsl */ `
     return mix(mix(h00, h10, t.x), mix(h01, h11, t.x), t.y) * heightRange + heightMin;
   }
 
-  float globalHeight(vec3 up) { return packedBilinear(globalHeightMap, equirectUv(toMoonFixed(up)), globalHeightSize, true); }
+  float coarseHeight(vec3 up) { return packedBilinear(globalHeightMap, equirectUv(toMoonFixed(up)), globalHeightSize, true); }
+
+  /** Position in the detail atlas (0..1 inside), longitude measured eastward from its west edge. */
+  vec2 atlasUv(vec3 up) {
+    vec3 p = toMoonFixed(up);
+    float east = mod(atan(p.y, p.x) - atlasOrigin.x + 4.0 * PI, 2.0 * PI);
+    return vec2(east, asin(clamp(p.z, -1.0, 1.0)) - atlasOrigin.y) / atlasSpan;
+  }
+
+  /** Atlas weight with a fade at its edge, times whether a tile exists there (alpha). */
+  float atlasWeight(vec2 uv) {
+    if (hasAtlas < 0.5 || any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return 0.0;
+    vec2 edge = min(uv, 1.0 - uv);
+    ivec2 texel = clamp(ivec2(uv * atlasHeightSize), ivec2(0), ivec2(int(atlasHeightSize) - 1));
+    return smoothstep(0.0, ATLAS_BLEND, min(edge.x, edge.y)) * texelFetch(atlasHeightMap, texel, 0).a;
+  }
+
+  /** Whole-Moon height: the streamed detail tiles where loaded, the coarse global map elsewhere. */
+  float globalHeight(vec3 up) {
+    float h = coarseHeight(up);
+    vec2 uv = atlasUv(up);
+    float w = atlasWeight(uv);
+    return w > 0.0 ? mix(h, packedBilinear(atlasHeightMap, uv, vec2(atlasHeightSize), false), w) : h;
+  }
   float innerHeight(vec2 xy) { return packedBilinear(innerHeightMap, xy / (2.0 * innerRhoMax) + 0.5, vec2(innerSize), false); }
   float outerHeight(vec2 xy) { return packedBilinear(outerHeightMap, xy / (2.0 * outerRhoMax) + 0.5, vec2(outerSize), false); }
 
@@ -300,6 +331,7 @@ const terrainData = /* glsl */ `
     vec2 w = polarWeights(up, xy);
     if (w.x > 0.5) return 2.0 * innerRhoMax * MOON_RADIUS_M / innerSize;
     if (w.y > 0.5) return 2.0 * outerRhoMax * MOON_RADIUS_M / outerSize;
+    if (atlasWeight(atlasUv(up)) > 0.5) return atlasSpan * MOON_RADIUS_M / atlasHeightSize;
     return 2.0 * PI * MOON_RADIUS_M / globalHeightSize.x;
   }
 `;
@@ -373,6 +405,7 @@ const terrainFragment = /* glsl */ `
   uniform sampler2D innerNormalMap;
   uniform sampler2D outerColorMap;
   uniform sampler2D outerNormalMap;
+  uniform sampler2D atlasNormalMap;
   uniform float sunRadius;
   uniform vec4 holeRect;
   uniform float hasHole;
@@ -392,6 +425,9 @@ const terrainFragment = /* glsl */ `
     vec2 uv = equirectUv(toMoonFixed(up));
     albedo = sampleEquirect(globalColorMap, uv).rgb;
     tangentNormal = sampleEquirect(globalNormalMap, uv).xyz * 2.0 - 1.0;
+    vec2 auv = atlasUv(up);
+    float aw = atlasWeight(auv);
+    if (aw > 0.0) tangentNormal = mix(tangentNormal, texture2D(atlasNormalMap, auv).xyz * 2.0 - 1.0, aw);
     vec2 xy;
     vec2 w = polarWeights(up, xy);
     if (w.y > 0.0) {

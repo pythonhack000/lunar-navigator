@@ -35,5 +35,13 @@
     "innerRho": 0.17497732705184807,
     "heightSize": 4096
   },
-  "source": "NASA SVS CGI Moon Kit (LRO LROC colour, LOLA elevation)"
+  "source": "NASA SVS CGI Moon Kit (LRO LROC colour, LOLA elevation)",
+  "tiles": {
+    "deg": 10,
+    "heightPx": 320,
+    "normalPx": 640,
+    "firstBand": 3,
+    "bands": 18,
+    "cols": 36
+  }
 }

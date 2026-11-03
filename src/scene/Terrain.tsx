@@ -1,9 +1,10 @@
 import { useTexture } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
-import { useMemo } from 'react';
-import { BackSide, FrontSide, PlaneGeometry, ShaderMaterial, Vector2, Vector4, type IUniform, type Texture, type Vector3 } from 'three';
+import { useEffect, useMemo, useRef } from 'react';
+import { BackSide, DataTexture, FrontSide, PlaneGeometry, ShaderMaterial, Vector2, Vector4, type IUniform, type Texture, type Vector3 } from 'three';
 import { MOON_RADIUS_KM } from '../lib/ephemeris';
-import type { PolarTile } from '../lib/loadTerrain';
+import type { PolarTile, TileGridSpec } from '../lib/loadTerrain';
+import { loadAtlas, tileIndex, type DetailAtlas } from './detailAtlas';
 import { clipmapLevels, finestLevelFor, GRID_CELLS } from './clipmap';
 import { fromThree } from './coords';
 import type { CameraFocus } from './globeCamera';
@@ -26,6 +27,7 @@ interface TerrainProps {
   heightRange: { minM: number; maxM: number };
   polar: PolarTile;
   polarOuter?: PolarTile;
+  tiles?: TileGridSpec;
   lighting: MoonLighting;
   focus: CameraFocus;
 }
@@ -41,6 +43,11 @@ const SUN_RADIUS_RAD = (0.267 * Math.PI) / 180;
 /** Procedural craters: three octaves here plus two finer ones in the shader, all below ~600 m. */
 const DETAIL_CELLS_KM: [number, number, number] = [0.6, 0.2, 0.07];
 const DETAIL_STRENGTH = 0.22;
+/** Stream detail tiles only once the camera is within ~870 km of the ground. */
+const ATLAS_RANGE = 0.5;
+/** Bound until the first atlas arrives; hasAtlas = 0 keeps the shader from reading it. */
+const EMPTY_TEXTURE = new DataTexture(new Uint8Array(4), 1, 1);
+EMPTY_TEXTURE.needsUpdate = true;
 
 type Uniforms = Record<string, IUniform>;
 
@@ -100,7 +107,7 @@ function applyLevels(meshes: LevelMesh[], focusX: number, focusY: number, cell0:
   });
 }
 
-export function Terrain({ sunDir, earthDir, heightRange, polar, polarOuter, lighting, focus }: TerrainProps) {
+export function Terrain({ sunDir, earthDir, heightRange, polar, polarOuter, tiles, lighting, focus }: TerrainProps) {
   const globalSet = useTexture(
     [textureUrl('moon_color_8k.jpg'), textureUrl('moon_normal_8k.jpg'), textureUrl('moon_height_4k.png')],
     prepareTerrainSet,
@@ -113,7 +120,7 @@ export function Terrain({ sunDir, earthDir, heightRange, polar, polarOuter, ligh
 
   const geometry = useMemo(unitGrid, []);
 
-  const { globe, polarMeshes } = useMemo(() => {
+  const { shared, globe, polarMeshes } = useMemo(() => {
     const [gColor, gNormal, gHeight] = globalSet as Texture[];
     const [iColor, iNormal, iHeight] = innerSet as Texture[];
     const [oColor, oNormal, oHeight] = outerSet as Texture[];
@@ -152,17 +159,67 @@ export function Terrain({ sunDir, earthDir, heightRange, polar, polarOuter, ligh
       fillLight: { value: lighting.fillLight },
       detailStrength: { value: DETAIL_STRENGTH },
       detailCellKm: { value: DETAIL_CELLS_KM },
+      atlasHeightMap: { value: EMPTY_TEXTURE },
+      atlasNormalMap: { value: EMPTY_TEXTURE },
+      atlasOrigin: { value: new Vector2() },
+      atlasSpan: { value: 1 },
+      atlasHeightSize: { value: 1 },
+      hasAtlas: { value: 0 },
     };
     return {
+      shared,
       globe: makeLevels(GLOBE_LEVELS, shared, globeVertexShader, globeFragmentShader, true),
       polarMeshes: makeLevels(POLAR_LEVELS, shared, polarVertexShader, polarFragmentShader, false),
     };
   }, [globalSet, innerSet, outerSet, heightRange, polar, polarOuter, outer, sunDir, earthDir, lighting]);
 
+  // Streams the 3x3 block of LOLA detail tiles around the focus; swaps it in only once loaded.
+  const atlas = useRef<{ current: DetailAtlas | null; loading: string | null }>({ current: null, loading: null });
+  useEffect(
+    () => () => {
+      atlas.current.current?.heights.dispose();
+      atlas.current.current?.normals.dispose();
+    },
+    [],
+  );
+
+  const updateAtlas = (lon: number, lat: number) => {
+    if (!tiles || focus.range > ATLAS_RANGE) return;
+    const { i, j } = tileIndex(lon, lat, tiles);
+    if (j < tiles.firstBand - 1) return;
+    const key = `${i},${j}`;
+    const state = atlas.current;
+    if (state.current?.key === key || state.loading === key) return;
+    state.loading = key;
+    loadAtlas(i, j, tiles)
+      .then((next) => {
+        if (state.loading !== key) {
+          next.heights.dispose();
+          next.normals.dispose();
+          return;
+        }
+        state.current?.heights.dispose();
+        state.current?.normals.dispose();
+        state.current = next;
+        state.loading = null;
+        shared.atlasHeightMap.value = next.heights;
+        shared.atlasNormalMap.value = next.normals;
+        shared.atlasOrigin.value.set(next.originLon, next.originLat);
+        shared.atlasSpan.value = next.spanRad;
+        shared.atlasHeightSize.value = next.heightSize;
+        shared.hasAtlas.value = 1;
+      })
+      .catch(() => {
+        // Keep the coarse map; the next tile change retries.
+        if (state.loading === key) state.loading = null;
+      });
+  };
+
   useFrame(() => {
     const [x, y, z] = fromThree(focus.target);
     const lon = Math.atan2(y, x);
     const lat = Math.asin(Math.max(-1, Math.min(1, z)));
+    updateAtlas(lon, lat);
     const globeTopLon = Math.floor((lon - Math.PI) / GLOBE_TOP_CELL) * GLOBE_TOP_CELL;
     applyLevels(globe, lon, lat, GLOBE_TOP_CELL / 2 ** (GLOBE_LEVELS - 1), focus.range, [globeTopLon, -Math.PI / 2]);
 

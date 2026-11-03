@@ -22,6 +22,10 @@ Built for the NASA Space Apps Challenge 2026 — *Lunar Landing Site Navigator*.
 - **Horizon panorama**: the 360° LOLA skyline around the site, with the Sun's and Earth's paths over the month.
 - **Lunar-month timeline**: sunlight and Earth visibility hour by hour; drag to scrub, or play at 1 h – 1 day per second.
 - **Compare** up to four sites side by side: sunlight share, Earth visibility, both at once, longest night.
+- **LUNA, the mission assistant**: a guided tour of the interface, plain-language briefings on the selected
+  site, and one-click rankings of the best sites for solar power, Earth link, or both.
+- **Terrain everywhere**: a clipmap (nested, ground-pinned grids) draws the whole Moon; LOLA 64 px/deg detail
+  tiles stream in around the camera, the 80 m and 240 m polar maps take over near the south pole.
 
 ## How it works
 
@@ -52,6 +56,7 @@ then run (the PDS grid's axis orientation is matched automatically against the g
 
 ```bash
 python3 -I scripts/prepare_assets.py ~/path/to/nasa-files
+python3 -I scripts/make_tiles.py ~/path/to/nasa-files     # 540 streamed 10° detail tiles
 ```
 
 ## Data credits

@@ -59,7 +59,7 @@ const WRAP_JUMP_DEG = 180;
  * A body's path across the sky as one smooth line. The line breaks where the azimuth wraps past
  * north, and starts at the body's live position so it never lags behind the disc.
  */
-export function trackPath(az: ArrayLike<number>, el: ArrayLike<number>, from: number, scale: Scale, start?: { az: number; el: number }): string {
+function trackPath(az: ArrayLike<number>, el: ArrayLike<number>, from: number, scale: Scale, start?: { az: number; el: number }): string {
   const parts: string[] = [];
   let prevAz = start?.az ?? NaN;
   if (start) parts.push(`M${scale.x(start.az).toFixed(1)},${scale.y(start.el).toFixed(1)}`);

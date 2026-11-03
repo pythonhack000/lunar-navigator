@@ -144,15 +144,22 @@ async function loadPolarGrid(manifest: TerrainManifest, tile: PolarTile, step: n
   });
 }
 
-/** Loads the LOLA elevation grids listed in public/data/manifest.json. */
-export async function loadTerrain(): Promise<LoadedTerrain> {
+export interface StagedTerrain extends LoadedTerrain {
+  /** The same terrain with the detailed polar grids (LOLA 80 m / 240 m), which arrive later. */
+  refined: Promise<Terrain>;
+}
+
+/**
+ * Loads the LOLA elevation grids listed in public/data/manifest.json in two stages: the small
+ * global grids (a few MB) first, so the app opens at once; the polar grids (tens of MB) after.
+ */
+export async function loadTerrain(): Promise<StagedTerrain> {
   const manifest = parseManifest(await (await fetchOk('data/manifest.json')).json());
+  const [global, ...detailed] = await Promise.all([manifest.global, ...manifest.detailed].map(loadGrid));
   const outer = manifest.polarOuter;
-  const [inner, outerGrid, global, ...detailed] = (await Promise.all([
+  const refined = Promise.all([
     loadPolarGrid(manifest, manifest.polar, INNER_GRID_STEP),
     outer ? loadPolarGrid(manifest, outer, OUTER_GRID_STEP) : Promise.resolve(null),
-    ...[manifest.global, ...manifest.detailed].map(loadGrid),
-  ])) as [PolarGrid, PolarGrid | null, DemGrid, ...DemGrid[]];
-  const polarGrids = [inner, outerGrid].filter((g): g is PolarGrid => g !== null);
-  return { terrain: createTerrain(global, detailed, polarGrids), manifest };
+  ]).then((grids) => createTerrain(global, detailed, grids.filter((g): g is PolarGrid => g !== null)));
+  return { terrain: createTerrain(global, detailed), manifest, refined };
 }

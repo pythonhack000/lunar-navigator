@@ -8,6 +8,7 @@ import { useNavigator } from './state/store';
 import { Assistant } from './ui/Assistant';
 import { useLangScramble } from './ui/useLangScramble';
 import { CameraStatus } from './ui/CameraStatus';
+import { LoadingBar } from './ui/LoadingBar';
 import { ComparePanel } from './ui/ComparePanel';
 import { SceneErrorBoundary } from './ui/SceneErrorBoundary';
 import { SitePanel } from './ui/SitePanel';
@@ -45,6 +46,7 @@ function Navigator({ loaded }: Props) {
           />
         </SceneErrorBoundary>
         <CameraStatus polarRhoMax={loaded.manifest.polar.rhoMax} />
+        <LoadingBar />
       </div>
       <div className="hud">
         <header className="brand">
@@ -76,7 +78,14 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     loadTerrain()
-      .then((result) => !cancelled && setLoaded(result))
+      .then(({ refined, ...base }) => {
+        if (cancelled) return;
+        setLoaded(base);
+        // Horizons sharpen once the polar grids arrive; until then the 16 px/° grid is used.
+        refined
+          .then((terrain) => !cancelled && setLoaded({ ...base, terrain }))
+          .catch((e: unknown) => console.warn('Detailed polar terrain failed to load', e));
+      })
       .catch((e: unknown) => !cancelled && setError(errorMessage(e)));
     return () => {
       cancelled = true;

@@ -1,3 +1,4 @@
+import { createPolarGrid, decodePackedHeights, type PolarGrid } from './polarGrid';
 import { createTerrain, type DemGrid, type Terrain } from './terrain';
 
 interface GridEntry {
@@ -81,9 +82,38 @@ async function loadGrid(entry: GridEntry): Promise<DemGrid> {
   return { ...entry, data: new Int16Array(buffer) };
 }
 
+const POLAR_HEIGHT_IMAGE = 'textures/south_height_4k.png';
+/** Every second pixel: ~300 m spacing, close to the LOLA source and a quarter of the memory. */
+const POLAR_GRID_STEP = 2;
+
+/**
+ * The polar cap heights (LOLA 80 m map) arrive as the same packed PNG the 3D view uses; decode it
+ * once more on the CPU so horizon calculations near the pole use the detailed data too.
+ */
+async function loadPolarGrid(manifest: TerrainManifest): Promise<PolarGrid> {
+  const blob = await (await fetchOk(POLAR_HEIGHT_IMAGE)).blob();
+  const bitmap = await createImageBitmap(blob, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new Error('Could not read the polar elevation image');
+  ctx.drawImage(bitmap, 0, 0);
+  const { width, height } = bitmap;
+  const pixels = ctx.getImageData(0, 0, width, height).data;
+  bitmap.close();
+  return createPolarGrid({
+    size: Math.floor(width / POLAR_GRID_STEP),
+    rhoMax: manifest.polar.rhoMax,
+    edgeLat: manifest.polar.edgeLat,
+    data: decodePackedHeights(pixels, width, height, manifest.heightTexture, POLAR_GRID_STEP),
+  });
+}
+
 /** Loads the LOLA elevation grids listed in public/data/manifest.json. */
 export async function loadTerrain(): Promise<LoadedTerrain> {
   const manifest = parseManifest(await (await fetchOk('data/manifest.json')).json());
-  const [global, ...detailed] = await Promise.all([manifest.global, ...manifest.detailed].map(loadGrid));
-  return { terrain: createTerrain(global, detailed), manifest };
+  const [polar, global, ...detailed] = await Promise.all([
+    loadPolarGrid(manifest),
+    ...[manifest.global, ...manifest.detailed].map(loadGrid),
+  ]);
+  return { terrain: createTerrain(global as DemGrid, detailed as DemGrid[], polar as PolarGrid), manifest };
 }

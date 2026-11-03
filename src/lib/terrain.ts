@@ -1,3 +1,4 @@
+import type { PolarGrid } from './polarGrid';
 import { wrapLon } from './vec';
 
 /** An equirectangular elevation grid; heights in metres above the 1737.4 km sphere. */
@@ -34,10 +35,14 @@ function sampleGrid(grid: DemGrid, latDeg: number, lonDeg: number): number {
 const coversLat = (grid: DemGrid, latDeg: number): boolean =>
   latDeg <= grid.latTop && latDeg >= grid.latTop - grid.height / grid.pixelsPerDegree;
 
-/** Uses a detailed grid where one covers the point and the global grid everywhere else. */
-export function createTerrain(global: DemGrid, detailed: readonly DemGrid[] = []): Terrain {
+/**
+ * The most detailed source that covers each point: the polar stereographic grid near the pole,
+ * then any detailed equirectangular band, then the global grid.
+ */
+export function createTerrain(global: DemGrid, detailed: readonly DemGrid[] = [], polar?: PolarGrid): Terrain {
   return {
     heightAt(latDeg, lonDeg) {
+      if (polar?.covers(latDeg)) return polar.heightAt(latDeg, lonDeg);
       const grid = detailed.find((g) => coversLat(g, latDeg)) ?? global;
       return sampleGrid(grid, latDeg, lonDeg);
     },

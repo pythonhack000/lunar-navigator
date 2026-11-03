@@ -6,6 +6,7 @@ import { loadTerrain, type LoadedTerrain } from './lib/loadTerrain';
 import { MoonScene } from './scene/MoonScene';
 import { useNavigator } from './state/store';
 import { Assistant } from './ui/Assistant';
+import { useLangScramble } from './ui/useLangScramble';
 import { CameraStatus } from './ui/CameraStatus';
 import { ComparePanel } from './ui/ComparePanel';
 import { SceneErrorBoundary } from './ui/SceneErrorBoundary';
@@ -24,9 +25,10 @@ function Navigator({ loaded }: Props) {
   const selectSite = useNavigator((s) => s.selectSite);
   const analysis = useSiteAnalysis(loaded.terrain, site.lat, site.lon, time);
   const lang = useNavigator((s) => s.lang);
+  useLangScramble();
   const handlePick = useCallback(
-    (lat: number, lon: number) => selectSite({ id: null, name: translate(lang, 'site.custom'), lat, lon }),
-    [selectSite, lang],
+    (lat: number, lon: number) => selectSite({ id: null, name: '', kind: 'custom', lat, lon }),
+    [selectSite],
   );
 
   return (

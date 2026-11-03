@@ -49,6 +49,7 @@ const UI = {
     next: 'Next',
     done: 'Done',
     role: 'mission assistant',
+    switched: 'Switched to English. Ask me anything.',
     voiceOn: 'Voice on',
     voiceOff: 'Voice off',
     error: 'Sorry, I could not compare the sites.',
@@ -80,6 +81,7 @@ const UI = {
     next: 'Дальше',
     done: 'Готово',
     role: 'ассистент миссии',
+    switched: 'Перешла на русский. Спрашивай!',
     voiceOn: 'Голос вкл.',
     voiceOff: 'Голос выкл.',
     error: 'Не получилось сравнить места.',
@@ -110,17 +112,17 @@ export function explainSite(name: string, a: SiteAnalysis, lang: Lang): string[]
   const lines: string[] = [];
   if (sunUp) {
     const tail = nextSunChange ? (ru ? ` — зайдёт за рельеф через ${dur(nextSunChange - now)}` : ` — it sets behind terrain in ${dur(nextSunChange - now)}`) : ru ? ' и не зайдёт весь месяц' : ' and stays up all month';
-    lines.push(ru ? `☀ Над ${name} светит Солнце, ${formatDeg(state.sun.elDeg)} над горизонтом${tail}.` : `☀ The Sun is up at ${name}, ${formatDeg(state.sun.elDeg)} above the horizon${tail}.`);
+    lines.push(ru ? `Над ${name} светит Солнце, ${formatDeg(state.sun.elDeg)} над горизонтом${tail}.` : `The Sun is up at ${name}, ${formatDeg(state.sun.elDeg)} above the horizon${tail}.`);
   } else {
     const tail = nextSunChange ? (ru ? `, взойдёт через ${dur(nextSunChange - now)}` : `, rising in ${dur(nextSunChange - now)}`) : '';
-    lines.push(ru ? `☾ В ${name} сейчас ночь: Солнце за хребтом${tail}.` : `☾ It is night at ${name}: the Sun is behind the ridge line${tail}.`);
+    lines.push(ru ? `В ${name} сейчас ночь: Солнце за хребтом${tail}.` : `It is night at ${name}: the Sun is behind the ridge line${tail}.`);
   }
   if (earthUp) {
     const tail = nextEarthChange ? (ru ? ` ещё ${dur(nextEarthChange - now)}` : ` for another ${dur(nextEarthChange - now)}`) : '';
-    lines.push(ru ? `🛰 Земля видна — модуль может связываться напрямую${tail}.` : `🛰 Earth is in view, so a lander could radio home directly${tail}.`);
+    lines.push(ru ? `Земля видна — модуль может связываться напрямую${tail}.` : `Earth is in view, so a lander could radio home directly${tail}.`);
   } else {
     const span = nextEarthChange ? dur(nextEarthChange - now) : null;
-    lines.push(ru ? `🛰 Земля скрыта${span ? ` ещё ${span}` : ' весь месяц'} — понадобится спутник-ретранслятор.` : `🛰 Earth is hidden${span ? ` for ${span}` : ' all month'} — a relay satellite would be needed.`);
+    lines.push(ru ? `Земля скрыта${span ? ` ещё ${span}` : ' весь месяц'} — понадобится спутник-ретранслятор.` : `Earth is hidden${span ? ` for ${span}` : ' all month'} — a relay satellite would be needed.`);
   }
   lines.push(
     ru

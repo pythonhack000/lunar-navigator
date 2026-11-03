@@ -55,11 +55,18 @@ const EN = {
   'speed.1': '1 h/s',
   'speed.6': '6 h/s',
   'speed.24': '1 d/s',
-  'compare.title': 'Compare · next lunar month',
+  'compare.title': 'Compare sites',
   'compare.site': 'Site',
   'compare.earth': 'Earth',
   'compare.both': 'Both',
   'compare.remove': 'Remove {name}',
+  'compare.period': 'Period',
+  'compare.from': 'From',
+  'compare.to': 'To',
+  'period.week': 'Week',
+  'period.month': 'Month',
+  'period.quarter': '3 months',
+  'period.custom': 'Dates',
   'camera.whole': 'Whole Moon',
   'camera.fly': 'Fly to site',
   'camera.relief': 'Relief',
@@ -75,7 +82,7 @@ const EN = {
   'cal.sun': 'Sun only',
   'cal.earth': 'Earth only',
   'cal.none': 'Neither',
-  'cal.hint': 'Each row is a day, each column an hour (UTC). Click to jump there.',
+  'cal.hint': 'Brighter days have more hours with both Sun and Earth up. Click a day to jump to its best window.',
   'cal.from': 'From',
   'cal.close': 'Close',
   'lang': 'Language',
@@ -139,11 +146,18 @@ const RU: Record<StringKey, string> = {
   'speed.1': '1 ч/с',
   'speed.6': '6 ч/с',
   'speed.24': '1 д/с',
-  'compare.title': 'Сравнение · ближайший месяц',
+  'compare.title': 'Сравнение мест',
   'compare.site': 'Место',
   'compare.earth': 'Земля',
   'compare.both': 'Оба',
   'compare.remove': 'Убрать {name}',
+  'compare.period': 'Период',
+  'compare.from': 'С',
+  'compare.to': 'По',
+  'period.week': 'Неделя',
+  'period.month': 'Месяц',
+  'period.quarter': '3 месяца',
+  'period.custom': 'Даты',
   'camera.whole': 'Вся Луна',
   'camera.fly': 'К месту',
   'camera.relief': 'Рельеф',
@@ -159,7 +173,7 @@ const RU: Record<StringKey, string> = {
   'cal.sun': 'Только Солнце',
   'cal.earth': 'Только Земля',
   'cal.none': 'Ничего',
-  'cal.hint': 'Строка — день, столбец — час (UTC). Кликните, чтобы перейти.',
+  'cal.hint': 'Чем ярче день, тем больше часов, когда видны и Солнце, и Земля. Кликните день — перейдём к лучшему окну.',
   'cal.from': 'С',
   'cal.close': 'Закрыть',
   'lang': 'Язык',
@@ -181,4 +195,11 @@ export function translate(lang: Lang, key: StringKey, vars?: Record<string, stri
 export function useT(): Translate {
   const lang = useNavigator((s) => s.lang);
   return (key, vars) => translate(lang, key, vars);
+}
+
+/** Display name of a site in the current language (unnamed places are labelled by kind). */
+export function siteLabel(site: { name: string; kind?: 'custom' | 'brightest' }, lang: Lang): string {
+  if (site.kind === 'custom') return translate(lang, 'site.custom');
+  if (site.kind === 'brightest') return translate(lang, 'site.brightest');
+  return site.name;
 }

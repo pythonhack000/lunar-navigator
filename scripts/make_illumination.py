@@ -30,7 +30,7 @@ from prepare_assets import (  # noqa: E402
 
 OUT_PX = 512
 HEIGHT_PX = 1024
-AZIMUTHS = 72
+AZIMUTHS = 180
 DISTANCES_KM = np.geomspace(0.3, 150.0, 40)
 PDS_ORIENTATION = (True, 1, -1)  # matched by prepare_assets.py against the global LOLA data
 
@@ -94,14 +94,22 @@ def main(src: Path, sun_path: Path) -> None:
     for s in suns:
         elev = np.arcsin(np.clip(up @ s, -1, 1))
         az = np.arctan2(east @ s, north @ s) % (2 * math.pi)
-        bins = (az / (2 * math.pi) * AZIMUTHS).astype(np.int32) % AZIMUTHS
-        hz = horizon.reshape(AZIMUTHS, -1)[bins.ravel(), flat_idx].reshape(x.shape)
+        # Interpolate the horizon between azimuth samples so no radial streaks appear.
+        f = az / (2 * math.pi) * AZIMUTHS
+        b0 = np.floor(f).astype(np.int32) % AZIMUTHS
+        b1 = (b0 + 1) % AZIMUTHS
+        t = (f - np.floor(f)).ravel()
+        flat = horizon.reshape(AZIMUTHS, -1)
+        hz = (flat[b0.ravel(), flat_idx] * (1 - t) + flat[b1.ravel(), flat_idx] * t).reshape(x.shape)
         lit += elev > hz
     share = lit / len(suns)
     print(f"\nlit share: max {share[valid].max():.3f}, shadowed pixels {(lit[valid] == 0).mean():.1%}")
 
+    # A light blur hides the remaining per-pixel noise of the ~1 km cells.
+    from PIL import ImageFilter
+    share = np.asarray(Image.fromarray((share * 255).astype(np.float32), "F").filter(ImageFilter.GaussianBlur(1.0))) / 255
     rgb = np.zeros(x.shape + (3,), dtype=np.uint8)
-    rgb[..., 0] = np.round(share * 255).astype(np.uint8)
+    rgb[..., 0] = np.round(np.clip(share, 0, 1) * 255).astype(np.uint8)
     rgb[..., 1] = np.where(valid & (lit == 0), 255, 0).astype(np.uint8)
     rgb[..., 2] = np.where(valid, 255, 0).astype(np.uint8)
     Image.fromarray(rgb, "RGB").save(PUBLIC / "textures/south_light_512.png", optimize=True)

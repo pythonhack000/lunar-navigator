@@ -26,7 +26,7 @@ function CustomSiteForm() {
       return;
     }
     setError(null);
-    selectSite({ id: null, name: t('site.custom'), lat: la, lon: lo });
+    selectSite({ id: null, name: '', kind: 'custom', lat: la, lon: lo });
   };
 
   return (

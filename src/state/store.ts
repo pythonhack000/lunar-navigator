@@ -8,6 +8,8 @@ export interface SelectedSite {
   name: string;
   lat: number;
   lon: number;
+  /** Unnamed places get their label from the current language instead of a stored name. */
+  kind?: 'custom' | 'brightest';
 }
 
 export type PlaybackSpeed = 1 | 6 | 24;

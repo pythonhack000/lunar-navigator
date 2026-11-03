@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { SiteAnalysis } from '../hooks/useSiteAnalysis';
-import { useT, type Translate } from '../i18n';
+import { siteLabel, useT, type Translate } from '../i18n';
 import { formatDeg, formatDuration, formatHours, formatLatLon, formatPercent } from '../lib/format';
 import type { BodyView } from '../lib/visibility';
 import { MAX_COMPARE, siteKey, useNavigator } from '../state/store';
@@ -74,10 +74,10 @@ export function SitePanel({ analysis, time }: SitePanelProps) {
   const sunPower = Math.max(0, Math.sin((state.sun.elDeg * Math.PI) / 180)) * state.sun.visibleFraction;
 
   return (
-    <section className="panel site-panel" aria-label={site.name}>
+    <section className="panel site-panel" aria-label={siteLabel(site, lang)}>
       <header className="site-panel__head">
         <div>
-          <h2>{site.name}</h2>
+          <h2>{siteLabel(site, lang)}</h2>
           <p className="muted">
             {formatLatLon(site.lat, site.lon)} · {Math.round(profile.siteHeightM).toLocaleString('en-US')} m
           </p>

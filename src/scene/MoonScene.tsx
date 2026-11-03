@@ -6,6 +6,7 @@ import { PerspectiveCamera, Vector3 } from 'three';
 import { EARTH_RADIUS_KM, MOON_RADIUS_KM } from '../lib/ephemeris';
 import type { PolarTile, TileGridSpec } from '../lib/loadTerrain';
 import type { Terrain } from '../lib/terrain';
+import { siteLabel } from '../i18n';
 import { siteKey, useNavigator, type SelectedSite } from '../state/store';
 import { CameraRig } from './CameraRig';
 import { Earth } from './Earth';
@@ -60,6 +61,7 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOute
   const compare = useNavigator((s) => s.compare);
   const isGlobeView = useNavigator((s) => s.isGlobeView);
   const flyNonce = useNavigator((s) => s.flyNonce);
+  const lang = useNavigator((s) => s.lang);
   const relief = useNavigator((s) => s.relief);
   const focus = useMemo<CameraFocus>(() => ({ target: new Vector3(0, -1, 0), range: 1 }), []);
   const lighting = useMemo<MoonLighting>(() => ({ ...BASE_LIGHTING, relief }), [relief]);
@@ -94,9 +96,9 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOute
         />
         <Earth sky={sky} radius={EARTH_RADIUS_KM / MOON_RADIUS_KM} />
       </Suspense>
-      <SiteMarker lat={site.lat} lon={site.lon} label={site.name} isPrimary />
+      <SiteMarker lat={site.lat} lon={site.lon} label={siteLabel(site, lang)} isPrimary />
       {others.map((c) => (
-        <SiteMarker key={siteKey(c)} lat={c.lat} lon={c.lon} label={c.name} isPrimary={false} />
+        <SiteMarker key={siteKey(c)} lat={c.lat} lon={c.lon} label={siteLabel(c, lang)} isPrimary={false} />
       ))}
       <CameraRig lat={site.lat} lon={site.lon} sunDir={sky.sunDir} isGlobeView={isGlobeView} flyNonce={flyNonce} terrain={terrain} relief={relief} focus={focus} polarEdgeLat={polar.edgeLat} outerEdgeLat={polarOuter?.edgeLat} onPick={onPick} />
       <EffectComposer>

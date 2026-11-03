@@ -4,6 +4,7 @@ import { WINDOW_MS, type SiteAnalysis } from '../hooks/useSiteAnalysis';
 import { formatPercent, HOUR_MS } from '../lib/format';
 import { rankSitesAsync, type RankedSite, type RankGoal } from '../lib/ranking';
 import type { Terrain } from '../lib/terrain';
+import { siteLabel } from '../i18n';
 import { MAX_COMPARE, useNavigator } from '../state/store';
 import { assistantText, describeRanking, explainSite, tourFor } from './assistantScript';
 
@@ -43,15 +44,46 @@ function writeFlag(key: string, value: boolean) {
   }
 }
 
+/** Natural-sounding female voices that ship with common systems, best first. */
+const PREFERRED_VOICES = {
+  en: ['Samantha', 'Ava', 'Allison', 'Google US English', 'Microsoft Aria', 'Microsoft Jenny', 'Karen', 'Moira', 'Tessa', 'Serena', 'Victoria'],
+  ru: ['Milena', 'Google русский', 'Microsoft Svetlana', 'Microsoft Irina', 'Katya', 'Alena'],
+} as const;
+
+function pickVoice(lang: 'en' | 'ru'): SpeechSynthesisVoice | undefined {
+  const voices = window.speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith(lang));
+  for (const name of PREFERRED_VOICES[lang]) {
+    const match = voices.find((v) => v.name.includes(name));
+    if (match) return match;
+  }
+  return voices.find((v) => /female|enhanced|premium|natural/i.test(v.name)) ?? voices[0];
+}
+
 /** Reads text aloud with the browser's built-in speech synthesis (no server involved). */
 function speak(text: string, lang: 'en' | 'ru') {
   if (!('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text.replace(/[☀☾🛰]/gu, ''));
+  const u = new SpeechSynthesisUtterance(text);
   u.lang = lang === 'ru' ? 'ru-RU' : 'en-US';
-  u.rate = 1.04;
-  u.pitch = 1.15;
+  const voice = pickVoice(lang);
+  if (voice) u.voice = voice;
+  // Close to natural speech: a robot-like pitch or speed sounds cheap.
+  u.rate = 1;
+  u.pitch = 1;
   window.speechSynthesis.speak(u);
+}
+
+function SpeakerIcon({ isOn }: { isOn: boolean }) {
+  return (
+    <svg viewBox="0 0 20 20" className="speaker-icon" aria-hidden="true">
+      <path d="M3 8h3l4-3.5v11L6 12H3z" fill="currentColor" />
+      {isOn ? (
+        <path d="M13 7.5a3.5 3.5 0 0 1 0 5M15 5.5a6.5 6.5 0 0 1 0 9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      ) : (
+        <path d="M13.5 8l4 4m0-4-4 4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      )}
+    </svg>
+  );
 }
 
 /** Types its text out letter by letter, like a terminal; click to show it all at once. */
@@ -119,6 +151,15 @@ export function Assistant({ analysis, terrain, windowStart }: Props) {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, isThinking]);
 
+  // A new language starts a fresh conversation in that language.
+  const firstLang = useRef(lang);
+  useEffect(() => {
+    if (lang === firstLang.current) return;
+    firstLang.current = lang;
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    setMessages([{ id: nextId.current++, from: 'luna', lines: [assistantText(lang).switched] }]);
+  }, [lang]);
+
   const say = (from: Message['from'], lines: string[], picks?: RankedSite[]) => {
     setMessages((m) => [...m, { id: nextId.current++, from, lines, picks }]);
     if (from === 'luna' && hasVoice) speak(lines.join(' '), lang);
@@ -171,7 +212,7 @@ export function Assistant({ analysis, terrain, windowStart }: Props) {
               <span className="muted"> · {text.role}</span>
             </div>
             <button type="button" className={hasVoice ? 'icon-button is-on' : 'icon-button'} aria-pressed={hasVoice} aria-label={hasVoice ? text.voiceOn : text.voiceOff} title={hasVoice ? text.voiceOn : text.voiceOff} onClick={toggleVoice}>
-              {hasVoice ? '🔊' : '🔈'}
+              <SpeakerIcon isOn={hasVoice} />
             </button>
             <button type="button" className="icon-button" aria-label="×" onClick={() => setOpen(false)}>
               ×
@@ -218,7 +259,7 @@ export function Assistant({ analysis, terrain, windowStart }: Props) {
                 {isThinking && <p className="muted luna-thinking">{text.thinking}</p>}
               </div>
               <div className="luna-chips">
-                <button type="button" onClick={() => { say('user', [text.explain]); say('luna', explainSite(site.name, analysis, lang)); }}>{text.explain}</button>
+                <button type="button" onClick={() => { say('user', [text.explain]); say('luna', explainSite(siteLabel(site, lang), analysis, lang)); }}>{text.explain}</button>
                 <button type="button" disabled={isThinking} onClick={() => void rank('both', text.artemis, true)}>{text.artemis}</button>
                 {(['power', 'comms', 'both'] as const).map((g) => (
                   <button key={g} type="button" disabled={isThinking} onClick={() => void rank(g, text.goals[g], false)}>{text.goals[g]}</button>

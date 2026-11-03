@@ -56,7 +56,7 @@ export function CameraStatus({ polarRhoMax }: Props) {
   const flyToSunniest = async () => {
     try {
       const { lat, lon } = await findSunniest(polarRhoMax);
-      selectSite({ id: null, name: t('site.brightest'), lat, lon });
+      selectSite({ id: null, name: '', kind: 'brightest', lat, lon });
     } catch {
       // The layer stays on; the button can be pressed again.
     }
@@ -72,14 +72,14 @@ export function CameraStatus({ polarRhoMax }: Props) {
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2 13 9H9.5v5h-3V9H3z" /></svg>
           {formatAltitude(altitude)}
         </div>
-        <div className="segmented pill-group" role="group" aria-label={t('camera.relief')}>
-          <span>{t('camera.relief')}</span>
-          {RELIEF_OPTIONS.map((r) => (
-            <button key={r} type="button" className={r === relief ? 'is-active' : undefined} aria-pressed={r === relief} onClick={() => setRelief(r)}>
-              {r}×
-            </button>
-          ))}
-        </div>
+        <button
+          type="button"
+          className="view-toggle"
+          title={t('camera.relief')}
+          onClick={() => setRelief(RELIEF_OPTIONS[(RELIEF_OPTIONS.indexOf(relief) + 1) % RELIEF_OPTIONS.length])}
+        >
+          {t('camera.relief')} {relief}×
+        </button>
         <div className="segmented pill-group" role="group" aria-label={t('layer.label')}>
           <span>{t('layer.label')}</span>
           {LAYERS.map((l) => (

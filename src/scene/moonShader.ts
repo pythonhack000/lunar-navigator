@@ -25,6 +25,23 @@ const common = /* glsl */ `
   }
 `;
 
+/** Fragment-only helper (it needs screen-space derivatives). */
+const equirectSampling = /* glsl */ `
+  /** Samples an equirectangular map without the mip seam where longitude wraps. */
+  vec4 sampleEquirect(sampler2D tex, vec2 uv) {
+    vec2 alt = vec2(fract(uv.x + 0.5) - 0.5, uv.y);
+    vec2 dx = dFdx(uv);
+    vec2 dy = dFdy(uv);
+    vec2 dxAlt = dFdx(alt);
+    vec2 dyAlt = dFdy(alt);
+    if (abs(dx.x) + abs(dy.x) > abs(dxAlt.x) + abs(dyAlt.x)) {
+      dx = dxAlt;
+      dy = dyAlt;
+    }
+    return textureGrad(tex, uv, dx, dy);
+  }
+`;
+
 const lighting = /* glsl */ `
   uniform vec3 sunDir;
   uniform vec3 earthDir;
@@ -181,6 +198,7 @@ export const moonVertexShader = /* glsl */ `
 
 export const moonFragmentShader = /* glsl */ `
   ${common}
+  ${equirectSampling}
   ${lighting}
   ${globeCommon}
   uniform sampler2D colorMap;
@@ -197,19 +215,6 @@ export const moonFragmentShader = /* glsl */ `
   /** Above this Sun elevation (sine) cast shadows are too short to see at this data resolution. */
   const float SHADOW_MAX_SUN = 0.35;
 
-  /** Samples an equirectangular map without the mip seam where longitude wraps. */
-  vec4 sampleEquirect(sampler2D tex, vec2 uv) {
-    vec2 alt = vec2(fract(uv.x + 0.5) - 0.5, uv.y);
-    vec2 dx = dFdx(uv);
-    vec2 dy = dFdy(uv);
-    vec2 dxAlt = dFdx(alt);
-    vec2 dyAlt = dFdy(alt);
-    if (abs(dx.x) + abs(dy.x) > abs(dxAlt.x) + abs(dyAlt.x)) {
-      dx = dxAlt;
-      dy = dyAlt;
-    }
-    return textureGrad(tex, uv, dx, dy);
-  }
 
   /** Share of the solar disc visible here: march along the ground toward the Sun. */
   float sunVisibility(vec3 up) {
@@ -269,6 +274,38 @@ const polarCommon = /* glsl */ `
 
   vec2 polarUv(vec2 xy) { return xy / (2.0 * rhoMax) + 0.5; }
 
+  /**
+   * Near its outer edge a tile fades into the coarser global maps (height, relief, colour), so at
+   * the very edge both meshes agree and no step or line shows. blendStart >= rhoEdge disables it.
+   */
+  uniform float blendStart;
+  uniform float rhoEdgeBlend;
+  uniform sampler2D globalHeightMap;
+  uniform vec2 globalHeightSize;
+
+  float edgeBlend(vec2 xy) { return smoothstep(blendStart, rhoEdgeBlend, length(xy)); }
+
+  vec2 globalUv(vec3 up) {
+    vec3 p = toMoonFixed(up);
+    return vec2(atan(p.y, p.x) / (2.0 * PI) + 0.5, asin(clamp(p.z, -1.0, 1.0)) / PI + 0.5);
+  }
+
+  float globalHeightAt(vec3 up) {
+    vec2 f = globalUv(up) * globalHeightSize - 0.5;
+    vec2 i = floor(f);
+    vec2 t = f - i;
+    int w = int(globalHeightSize.x);
+    int x0 = int(mod(i.x, globalHeightSize.x));
+    int x1 = (x0 + 1) % w;
+    int y0 = clamp(int(i.y), 0, int(globalHeightSize.y) - 1);
+    int y1 = min(y0 + 1, int(globalHeightSize.y) - 1);
+    float h00 = decodeHeight(texelFetch(globalHeightMap, ivec2(x0, y0), 0));
+    float h10 = decodeHeight(texelFetch(globalHeightMap, ivec2(x1, y0), 0));
+    float h01 = decodeHeight(texelFetch(globalHeightMap, ivec2(x0, y1), 0));
+    float h11 = decodeHeight(texelFetch(globalHeightMap, ivec2(x1, y1), 0));
+    return mix(mix(h00, h10, t.x), mix(h01, h11, t.x), t.y) * heightRange + heightMin;
+  }
+
   /** Bilinear height in metres; the packed bytes cannot be filtered by the GPU, so taps are decoded first. */
   float heightAt(vec2 uv) {
     vec2 f = uv * heightSize - 0.5;
@@ -311,7 +348,8 @@ export const polarVertexShader = /* glsl */ `
     float rho = length(xy);
     if (rho > rhoMax) xy *= rhoMax / rho;
     vec3 up = polarToScene(xy);
-    float h = heightAt(polarUv(xy));
+    float b = edgeBlend(xy);
+    float h = b > 0.0 ? mix(heightAt(polarUv(xy)), globalHeightAt(up), b) : heightAt(polarUv(xy));
     vec4 world = modelMatrix * vec4(up * (1.0 + h * heightScale * relief), 1.0);
     vXY = xy;
     vUp = up;
@@ -322,10 +360,13 @@ export const polarVertexShader = /* glsl */ `
 
 export const polarFragmentShader = /* glsl */ `
   ${common}
+  ${equirectSampling}
   ${lighting}
   ${polarCommon}
   uniform sampler2D colorMap;
   uniform sampler2D normalMap;
+  uniform sampler2D globalColorMap;
+  uniform sampler2D globalNormalMap;
   uniform float rhoEdge;
   uniform float innerRho;
   uniform float sunRadius;
@@ -388,6 +429,12 @@ export const polarFragmentShader = /* glsl */ `
     vec2 uv = polarUv(vXY);
     vec3 albedo = texture2D(colorMap, uv).rgb;
     vec3 tangentNormal = texture2D(normalMap, uv).xyz * 2.0 - 1.0;
+    float b = edgeBlend(vXY);
+    if (b > 0.0) {
+      vec2 guv = globalUv(up);
+      albedo = mix(albedo, sampleEquirect(globalColorMap, guv).rgb, b);
+      tangentNormal = mix(tangentNormal, sampleEquirect(globalNormalMap, guv).xyz * 2.0 - 1.0, b);
+    }
     float shadow = dot(up, sunDir) > -0.05 ? sunVisibility(vXY, up) : 0.0;
     gl_FragColor = vec4(shade(up, tangentNormal, albedo, shadow, vWorldPos), 1.0);
     #include <tonemapping_fragment>

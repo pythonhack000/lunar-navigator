@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { DoubleSide, PlaneGeometry, Vector2, type Vector3 } from 'three';
 import { MOON_RADIUS_KM } from '../lib/ephemeris';
 import type { PolarTile } from '../lib/loadTerrain';
+import { stereoRadius } from '../lib/polarGrid';
 import { fromThree } from './coords';
 import { snapTo, SNAP_CELLS, steppedDensity, type CameraFocus } from './globeCamera';
 import { polarFragmentShader, polarVertexShader } from './moonShader';
@@ -16,6 +17,8 @@ interface PolarCapProps {
   polar: PolarTile;
   lighting: MoonLighting;
   focus: CameraFocus;
+  /** Fade into the global maps near the outer edge (true for the outermost tile). */
+  blendToGlobal: boolean;
 }
 
 export interface MoonLighting {
@@ -39,6 +42,9 @@ const DETAIL_CELLS_PER_PIXEL: [number, number, number] = [2, 0.7, 0.25];
 const TILE_PIXELS = 4096;
 
 const noRaycast = () => null;
+/** Width of the fade into the global maps, in degrees of latitude inside the tile edge. */
+const BLEND_DEGREES = 3;
+const GLOBAL_HEIGHT_SIZE = new Vector2(4096, 2048);
 
 function detailCells(tile: PolarTile): [number, number, number] {
   const pixelKm = (2 * tile.rhoMax * MOON_RADIUS_KM) / TILE_PIXELS;
@@ -46,7 +52,12 @@ function detailCells(tile: PolarTile): [number, number, number] {
 }
 
 /** South of 80° S, drawn on a dense polar grid with ray-marched terrain shadows. */
-export function PolarCap({ sunDir, earthDir, heightRange, polar, lighting, focus }: PolarCapProps) {
+export function PolarCap({ sunDir, earthDir, heightRange, polar, lighting, focus, blendToGlobal }: PolarCapProps) {
+  // Same URLs as the globe, so these come from the texture cache rather than a second download.
+  const [globalColor, globalNormal, globalHeight] = useTexture(
+    [textureUrl('moon_color_8k.jpg'), textureUrl('moon_normal_8k.jpg'), textureUrl('moon_height_4k.png')],
+    prepareTerrainSet,
+  );
   const [color, normal, height] = useTexture(
     [`${polar.name}_color_4k.jpg`, `${polar.name}_normal_6k.jpg`, `${polar.name}_height_4k.png`].map(textureUrl),
     prepareTerrainSet,
@@ -66,6 +77,12 @@ export function PolarCap({ sunDir, earthDir, heightRange, polar, lighting, focus
       rhoMax: { value: polar.rhoMax },
       rhoEdge: { value: polar.rhoEdge },
       innerRho: { value: polar.innerRho },
+      globalColorMap: { value: globalColor },
+      globalNormalMap: { value: globalNormal },
+      globalHeightMap: { value: globalHeight },
+      globalHeightSize: { value: GLOBAL_HEIGHT_SIZE },
+      blendStart: { value: blendToGlobal ? stereoRadius(polar.edgeLat - BLEND_DEGREES) : polar.rhoEdge * 2 },
+      rhoEdgeBlend: { value: polar.rhoEdge },
       sunRadius: { value: SUN_RADIUS_RAD },
       sunDir: { value: sunDir },
       earthDir: { value: earthDir },
@@ -81,7 +98,7 @@ export function PolarCap({ sunDir, earthDir, heightRange, polar, lighting, focus
       extent: { value: 2 * polar.rhoMax },
       density: { value: 1 },
     }),
-    [color, normal, height, heightRange, polar, sunDir, earthDir, lighting],
+    [color, normal, height, globalColor, globalNormal, globalHeight, heightRange, polar, sunDir, earthDir, lighting, blendToGlobal],
   );
 
   useFrame(() => {

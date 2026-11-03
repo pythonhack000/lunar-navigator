@@ -89,10 +89,10 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOute
           lighting={lighting}
           focus={focus}
         />
-        <PolarCap sunDir={sky.sunDir} earthDir={sky.earthDir} heightRange={heightRange} polar={polar} lighting={lighting} focus={focus} />
+        <PolarCap sunDir={sky.sunDir} earthDir={sky.earthDir} heightRange={heightRange} polar={polar} lighting={lighting} focus={focus} blendToGlobal={!polarOuter} />
         {/* Same boundary as the globe: the globe leaves this ring to it, so they must appear together. */}
         {polarOuter && (
-          <PolarCap sunDir={sky.sunDir} earthDir={sky.earthDir} heightRange={heightRange} polar={polarOuter} lighting={lighting} focus={focus} />
+          <PolarCap sunDir={sky.sunDir} earthDir={sky.earthDir} heightRange={heightRange} polar={polarOuter} lighting={lighting} focus={focus} blendToGlobal />
         )}
         <Earth sky={sky} radius={EARTH_RADIUS_KM / MOON_RADIUS_KM} />
       </Suspense>

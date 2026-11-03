@@ -1,0 +1,187 @@
+import { useTexture } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import { useMemo } from 'react';
+import { BackSide, FrontSide, PlaneGeometry, ShaderMaterial, Vector2, Vector4, type IUniform, type Texture, type Vector3 } from 'three';
+import { MOON_RADIUS_KM } from '../lib/ephemeris';
+import type { PolarTile } from '../lib/loadTerrain';
+import { clipmapLevels, finestLevelFor, GRID_CELLS } from './clipmap';
+import { fromThree } from './coords';
+import type { CameraFocus } from './globeCamera';
+import { globeFragmentShader, globeVertexShader, polarFragmentShader, polarVertexShader } from './moonShader';
+import { prepareTerrainSet, textureUrl } from './moonTextures';
+
+export interface MoonLighting {
+  sunIntensity: number;
+  earthshine: number;
+  bumpStrength: number;
+  /** Vertical exaggeration of the drawn relief (calculations always use true heights). */
+  relief: number;
+  /** Faint artistic fill so shadowed slopes keep their shape. */
+  fillLight: number;
+}
+
+interface TerrainProps {
+  sunDir: Vector3;
+  earthDir: Vector3;
+  heightRange: { minM: number; maxM: number };
+  polar: PolarTile;
+  polarOuter?: PolarTile;
+  lighting: MoonLighting;
+  focus: CameraFocus;
+}
+
+const GLOBE_LEVELS = 10;
+const POLAR_LEVELS = 9;
+/** The coarsest globe level spans the full circle of longitude. */
+const GLOBE_TOP_CELL = (2 * Math.PI) / GRID_CELLS;
+/** The globe keeps drawing this far inside the polar mesh, so their hand-over never leaves a gap. */
+const OVERLAP_DEG = 1.5;
+const GLOBAL_HEIGHT_SIZE = new Vector2(4096, 2048);
+const SUN_RADIUS_RAD = (0.267 * Math.PI) / 180;
+/** Procedural craters: three octaves here plus two finer ones in the shader, all below ~600 m. */
+const DETAIL_CELLS_KM: [number, number, number] = [0.6, 0.2, 0.07];
+const DETAIL_STRENGTH = 0.22;
+
+type Uniforms = Record<string, IUniform>;
+
+const tileUrls = (name: string) => [`${name}_color_4k.jpg`, `${name}_normal_6k.jpg`, `${name}_height_4k.png`].map(textureUrl);
+
+/** A unit grid of (GRID_CELLS + 1)² vertices spanning [0, 1]², shared by every level. */
+function unitGrid(): PlaneGeometry {
+  const g = new PlaneGeometry(1, 1, GRID_CELLS, GRID_CELLS);
+  g.translate(0.5, 0.5, 0);
+  return g;
+}
+
+interface LevelMesh {
+  material: ShaderMaterial;
+}
+
+function makeLevels(count: number, shared: Uniforms, vertexShader: string, fragmentShader: string, isGlobe: boolean): LevelMesh[] {
+  return Array.from({ length: count }, (_, k) => {
+    const material = new ShaderMaterial({
+      vertexShader,
+      fragmentShader,
+      // The polar plane maps the grid mirror-wise onto the sphere, so its triangles face away.
+      side: isGlobe ? FrontSide : BackSide,
+      uniforms: {
+        ...shared,
+        levelOrigin: { value: new Vector2() },
+        levelCell: { value: 1 },
+        gridCells: { value: GRID_CELLS },
+        isCoarsest: { value: k === count - 1 ? 1 : 0 },
+        holeRect: { value: new Vector4() },
+        hasHole: { value: 0 },
+      },
+    });
+    if (isGlobe) {
+      // Where both meshes draw, the polar one wins; the globe only fills cracks behind it.
+      material.polygonOffset = true;
+      material.polygonOffsetFactor = 1;
+      material.polygonOffsetUnits = 1;
+    }
+    return { material };
+  });
+}
+
+function applyLevels(meshes: LevelMesh[], focusX: number, focusY: number, cell0: number, range: number, topOrigin: [number, number]) {
+  const count = meshes.length;
+  const finest = finestLevelFor(range, cell0, count);
+  const levels = clipmapLevels(focusX, focusY, cell0, count, finest);
+  // The coarsest level always covers the whole surface, from a fixed corner on its own lattice.
+  levels[count - 1] = { ...levels[count - 1], originX: topOrigin[0], originY: topOrigin[1] };
+  levels.forEach((level, k) => {
+    const u = meshes[k].material.uniforms;
+    u.levelOrigin.value.set(level.originX, level.originY);
+    u.levelCell.value = level.cell;
+    u.hasHole.value = level.hole ? 1 : 0;
+    if (level.hole) u.holeRect.value.set(...level.hole);
+    meshes[k].material.visible = level.visible;
+  });
+}
+
+export function Terrain({ sunDir, earthDir, heightRange, polar, polarOuter, lighting, focus }: TerrainProps) {
+  const globalSet = useTexture(
+    [textureUrl('moon_color_8k.jpg'), textureUrl('moon_normal_8k.jpg'), textureUrl('moon_height_4k.png')],
+    prepareTerrainSet,
+  );
+  const innerSet = useTexture(tileUrls(polar.name), prepareTerrainSet);
+  // Without an outer ring the inner tile's textures stand in, switched off by hasOuter.
+  const outerSet = useTexture(tileUrls((polarOuter ?? polar).name), prepareTerrainSet);
+  const outer = polarOuter ?? polar;
+  const coverRho = outer.rhoMax;
+
+  const geometry = useMemo(unitGrid, []);
+
+  const { globe, polarMeshes } = useMemo(() => {
+    const [gColor, gNormal, gHeight] = globalSet as Texture[];
+    const [iColor, iNormal, iHeight] = innerSet as Texture[];
+    const [oColor, oNormal, oHeight] = outerSet as Texture[];
+    const shared: Uniforms = {
+      heightMin: { value: heightRange.minM },
+      heightRange: { value: heightRange.maxM - heightRange.minM },
+      heightScale: { value: 1 / (MOON_RADIUS_KM * 1000) },
+      kmPerParam: { value: MOON_RADIUS_KM },
+      globalHeightMap: { value: gHeight },
+      globalHeightSize: { value: GLOBAL_HEIGHT_SIZE },
+      globalColorMap: { value: gColor },
+      globalNormalMap: { value: gNormal },
+      innerHeightMap: { value: iHeight },
+      innerColorMap: { value: iColor },
+      innerNormalMap: { value: iNormal },
+      innerSize: { value: polar.heightSize },
+      innerRhoMax: { value: polar.rhoMax },
+      innerRhoEdge: { value: polar.rhoEdge },
+      outerHeightMap: { value: oHeight },
+      outerColorMap: { value: oColor },
+      outerNormalMap: { value: oNormal },
+      outerSize: { value: outer.heightSize },
+      outerRhoMax: { value: outer.rhoMax },
+      outerRhoEdge: { value: outer.rhoEdge },
+      hasOuter: { value: polarOuter ? 1 : 0 },
+      minLatitude: { value: ((outer.edgeLat - OVERLAP_DEG) * Math.PI) / 180 },
+      maxPolarRho: { value: outer.rhoEdge },
+      sunRadius: { value: SUN_RADIUS_RAD },
+      // sunDir/earthDir are stable vectors the parent updates in place every frame.
+      sunDir: { value: sunDir },
+      earthDir: { value: earthDir },
+      sunIntensity: { value: lighting.sunIntensity },
+      earthshine: { value: lighting.earthshine },
+      bumpStrength: { value: lighting.bumpStrength },
+      relief: { value: lighting.relief },
+      fillLight: { value: lighting.fillLight },
+      detailStrength: { value: DETAIL_STRENGTH },
+      detailCellKm: { value: DETAIL_CELLS_KM },
+    };
+    return {
+      globe: makeLevels(GLOBE_LEVELS, shared, globeVertexShader, globeFragmentShader, true),
+      polarMeshes: makeLevels(POLAR_LEVELS, shared, polarVertexShader, polarFragmentShader, false),
+    };
+  }, [globalSet, innerSet, outerSet, heightRange, polar, polarOuter, outer, sunDir, earthDir, lighting]);
+
+  useFrame(() => {
+    const [x, y, z] = fromThree(focus.target);
+    const lon = Math.atan2(y, x);
+    const lat = Math.asin(Math.max(-1, Math.min(1, z)));
+    const globeTopLon = Math.floor((lon - Math.PI) / GLOBE_TOP_CELL) * GLOBE_TOP_CELL;
+    applyLevels(globe, lon, lat, GLOBE_TOP_CELL / 2 ** (GLOBE_LEVELS - 1), focus.range, [globeTopLon, -Math.PI / 2]);
+
+    const polarTopCell = (2 * coverRho) / GRID_CELLS;
+    const px = (2 * x) / Math.max(1 - z, 1e-6);
+    const py = (2 * y) / Math.max(1 - z, 1e-6);
+    const pr = Math.hypot(px, py);
+    const scale = pr > coverRho ? coverRho / pr : 1;
+    applyLevels(polarMeshes, px * scale, py * scale, polarTopCell / 2 ** (POLAR_LEVELS - 1), focus.range, [-coverRho, -coverRho]);
+  });
+
+  const levelMesh = (m: LevelMesh, key: string) => (
+    <mesh key={key} geometry={geometry} material={m.material} frustumCulled={false} raycast={() => null} />
+  );
+
+  return (
+    <>
+      {globe.map((m, k) => levelMesh(m, `g${k}`))}
+      {polarMeshes.map((m, k) => levelMesh(m, `p${k}`))}
+    </>
+  );
+}

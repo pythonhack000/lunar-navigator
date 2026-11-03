@@ -3,9 +3,12 @@
  * does not hit is black, apart from a faint earthshine. Reflectance follows the Lunar-Lambert model,
  * which is why the full Moon looks evenly bright instead of darkening toward the limb.
  *
- * Two meshes share this lighting: the global sphere, and a dense south polar cap (south of 80° S)
- * built in polar stereographic space so the pole is not pinched. The cap also ray-marches the LOLA
- * height map toward the Sun, so crater floors fill with true cast shadows.
+ * All terrain shares one height/colour/relief function of position (terrainData below), drawing on
+ * the most detailed source for each point: the LOLA 80 m polar map, the 240 m polar ring, then the
+ * global maps, with smooth blends between them. Meshes are only carriers: two clipmaps (see
+ * clipmap.ts), one in longitude/latitude for the whole Moon and one in the south polar plane, whose
+ * vertices are pinned to the ground. Where they overlap they shade every pixel identically, so the
+ * hand-over is invisible. Shadows are ray-marched over the same terrain toward the Sun.
  */
 
 /** Helpers shared by both meshes. Scene axes: +Y lunar north, +X prime meridian, -Z 90°E. */
@@ -204,142 +207,34 @@ const lighting = /* glsl */ `
   }
 `;
 
-// ---------------------------------------------------------------- whole Moon
+// ---------------------------------------------------------------- terrain data
 
-/**
- * The whole-Moon mesh is one grid laid out around `focus` (the point the camera looks at) in an
- * azimuthal equidistant projection: vertices crowd near the focus and thin out toward the far
- * side, like a game terrain LOD. Heights come from the LOLA equirectangular map.
- */
-const globeCommon = /* glsl */ `
-  uniform sampler2D heightMap;
+const terrainData = /* glsl */ `
   uniform float heightMin;
   uniform float heightRange;
-  uniform vec2 heightSize;
+  uniform sampler2D globalHeightMap;
+  uniform vec2 globalHeightSize;
+  uniform sampler2D innerHeightMap;
+  uniform float innerSize;
+  uniform float innerRhoMax;
+  uniform float innerRhoEdge;
+  uniform sampler2D outerHeightMap;
+  uniform float outerSize;
+  uniform float outerRhoMax;
+  uniform float outerRhoEdge;
+  uniform float hasOuter;
+  /** Width of each blend between sources, as a fraction of the tile radius. */
+  const float BLEND_FRACTION = 0.06;
 
   vec2 equirectUv(vec3 p) {
     return vec2(atan(p.y, p.x) / (2.0 * PI) + 0.5, asin(clamp(p.z, -1.0, 1.0)) / PI + 0.5);
   }
 
-  /** Bilinear LOLA height in metres under a scene-space direction; longitude wraps. */
-  float globeHeight(vec3 up) {
-    vec2 f = equirectUv(toMoonFixed(up)) * heightSize - 0.5;
-    vec2 i = floor(f);
-    vec2 t = f - i;
-    int w = int(heightSize.x);
-    int x0 = int(mod(i.x, heightSize.x));
-    int x1 = (x0 + 1) % w;
-    int y0 = clamp(int(i.y), 0, int(heightSize.y) - 1);
-    int y1 = min(y0 + 1, int(heightSize.y) - 1);
-    float h00 = decodeHeight(texelFetch(heightMap, ivec2(x0, y0), 0));
-    float h10 = decodeHeight(texelFetch(heightMap, ivec2(x1, y0), 0));
-    float h01 = decodeHeight(texelFetch(heightMap, ivec2(x0, y1), 0));
-    float h11 = decodeHeight(texelFetch(heightMap, ivec2(x1, y1), 0));
-    return mix(mix(h00, h10, t.x), mix(h01, h11, t.x), t.y) * heightRange + heightMin;
-  }
-`;
-
-export const moonVertexShader = /* glsl */ `
-  ${common}
-  ${globeCommon}
-  ${craterField}
-  uniform float heightScale;
-  uniform float relief;
-  uniform vec3 focus;
-  uniform float density;
-  /** Vertex spacing at the grid centre, km; it grows with the warp toward the edges. */
-  uniform float centerSpacingKm;
-
-  varying vec3 vUp;
-  varying vec3 vWorldPos;
-
-  void main() {
-    vec2 g = position.xy;
-    vec2 w = g * (density + (1.0 - density) * g * g) * PI;
-    float angle = min(length(w), PI);
-    vec3 east;
-    vec3 north;
-    localAxes(focus, east, north);
-    vec3 up = angle < 1e-7 ? focus : normalize(cos(angle) * focus + sin(angle) * normalize(w.x * east + w.y * north));
-    vec2 spread = (density + 3.0 * (1.0 - density) * g * g) / density;
-    float h = globeHeight(up) + detailHeightM(up, centerSpacingKm * max(spread.x, spread.y));
-    vec4 world = modelMatrix * vec4(up * (1.0 + h * heightScale * relief), 1.0);
-    vUp = up;
-    vWorldPos = world.xyz;
-    gl_Position = projectionMatrix * viewMatrix * world;
-  }
-`;
-
-export const moonFragmentShader = /* glsl */ `
-  ${common}
-  ${equirectSampling}
-  ${craterField}
-  ${lighting}
-  ${globeCommon}
-  uniform sampler2D colorMap;
-  uniform sampler2D normalMap;
-  uniform float polarCutZ;
-  uniform float sunRadius;
-
-  varying vec3 vUp;
-  varying vec3 vWorldPos;
-
-  const int SHADOW_STEPS = 26;
-  const float SHADOW_FIRST_M = 1300.0; // about half a height-map pixel
-  const float SHADOW_GROWTH = 1.27;
-  /** Above this Sun elevation (sine) cast shadows are too short to see at this data resolution. */
-  const float SHADOW_MAX_SUN = 0.35;
-
-
-  /** Share of the solar disc visible here: march along the ground toward the Sun. */
-  float sunVisibility(vec3 up) {
-    float su = dot(sunDir, up);
-    if (su <= -0.05) return 0.0;
-    if (su >= SHADOW_MAX_SUN) return 1.0;
-    vec3 flatSun = sunDir - su * up;
-    float horiz = length(flatSun);
-    if (horiz < 1e-6) return 1.0;
-    float tanEl = su / horiz;
-    vec3 dir = flatSun / horiz;
-    float h0 = globeHeight(up) * relief + 2.0;
-    // Jitter anchored to the ground (not the screen), so shadow edges do not shimmer while moving.
-    float jitter = fract(52.9829189 * fract(dot(floor(equirectUv(toMoonFixed(up)) * vec2(32768.0, 16384.0)), vec2(0.06711056, 0.00583715))));
-    float d = SHADOW_FIRST_M * (0.8 + 0.4 * jitter);
-    float vis = 1.0;
-    for (int i = 0; i < SHADOW_STEPS; i++) {
-      float a = d / MOON_RADIUS_M;
-      vec3 q = normalize(up * cos(a) + dir * sin(a));
-      float beam = h0 + d * tanEl + d * d / (2.0 * MOON_RADIUS_M);
-      float blockAngle = (globeHeight(q) * relief - beam) / d;
-      vis = min(vis, clamp(0.5 - blockAngle / (2.0 * sunRadius), 0.0, 1.0));
-      if (vis <= 0.0) break;
-      d *= SHADOW_GROWTH;
-    }
-    return vis;
-  }
-
-  void main() {
-    vec3 up = normalize(vUp);
+  /** South polar stereographic plane coordinates (unit sphere) of a scene direction. */
+  vec2 polarPlane(vec3 up) {
     vec3 p = toMoonFixed(up);
-    if (p.z < polarCutZ) discard; // the polar cap draws this part
-    vec2 uv = equirectUv(p);
-    vec3 albedo = sampleEquirect(colorMap, uv).rgb;
-    vec3 tangentNormal = sampleEquirect(normalMap, uv).xyz * 2.0 - 1.0;
-    gl_FragColor = vec4(shade(up, tangentNormal, albedo, sunVisibility(up), vWorldPos), 1.0);
-    #include <tonemapping_fragment>
-    #include <colorspace_fragment>
+    return 2.0 * p.xy / max(1.0 - p.z, 1e-6);
   }
-`;
-
-// ---------------------------------------------------------------- south polar cap
-
-/** Unit-sphere point for polar stereographic (X, Y) about the south pole, in scene axes. */
-const polarCommon = /* glsl */ `
-  uniform float rhoMax;
-  uniform sampler2D heightMap;
-  uniform float heightMin;
-  uniform float heightRange;
-  uniform float heightSize;
 
   vec3 polarToScene(vec2 xy) {
     float r2 = dot(xy, xy);
@@ -347,155 +242,190 @@ const polarCommon = /* glsl */ `
     return vec3(p.x, p.z, -p.y);
   }
 
-  vec2 polarUv(vec2 xy) { return xy / (2.0 * rhoMax) + 0.5; }
-
-  /**
-   * Near its outer edge a tile fades into the coarser global maps (height, relief, colour), so at
-   * the very edge both meshes agree and no step or line shows. blendStart >= rhoEdge disables it.
-   */
-  uniform float blendStart;
-  uniform float rhoEdgeBlend;
-  uniform sampler2D globalHeightMap;
-  uniform vec2 globalHeightSize;
-
-  float edgeBlend(vec2 xy) { return smoothstep(blendStart, rhoEdgeBlend, length(xy)); }
-
-  vec2 globalUv(vec3 up) {
-    vec3 p = toMoonFixed(up);
-    return vec2(atan(p.y, p.x) / (2.0 * PI) + 0.5, asin(clamp(p.z, -1.0, 1.0)) / PI + 0.5);
-  }
-
-  float globalHeightAt(vec3 up) {
-    vec2 f = globalUv(up) * globalHeightSize - 0.5;
+  /** Bilinear height in metres from a packed map; bytes cannot be GPU-filtered, so taps decode first. */
+  float packedBilinear(sampler2D map, vec2 uv, vec2 size, bool wrapX) {
+    vec2 f = uv * size - 0.5;
     vec2 i = floor(f);
     vec2 t = f - i;
-    int w = int(globalHeightSize.x);
-    int x0 = int(mod(i.x, globalHeightSize.x));
-    int x1 = (x0 + 1) % w;
-    int y0 = clamp(int(i.y), 0, int(globalHeightSize.y) - 1);
-    int y1 = min(y0 + 1, int(globalHeightSize.y) - 1);
-    float h00 = decodeHeight(texelFetch(globalHeightMap, ivec2(x0, y0), 0));
-    float h10 = decodeHeight(texelFetch(globalHeightMap, ivec2(x1, y0), 0));
-    float h01 = decodeHeight(texelFetch(globalHeightMap, ivec2(x0, y1), 0));
-    float h11 = decodeHeight(texelFetch(globalHeightMap, ivec2(x1, y1), 0));
+    ivec2 last = ivec2(size) - 1;
+    int x0 = wrapX ? int(mod(i.x, size.x)) : clamp(int(i.x), 0, last.x);
+    int x1 = wrapX ? (x0 + 1) % int(size.x) : min(x0 + 1, last.x);
+    int y0 = clamp(int(i.y), 0, last.y);
+    int y1 = min(y0 + 1, last.y);
+    float h00 = decodeHeight(texelFetch(map, ivec2(x0, y0), 0));
+    float h10 = decodeHeight(texelFetch(map, ivec2(x1, y0), 0));
+    float h01 = decodeHeight(texelFetch(map, ivec2(x0, y1), 0));
+    float h11 = decodeHeight(texelFetch(map, ivec2(x1, y1), 0));
     return mix(mix(h00, h10, t.x), mix(h01, h11, t.x), t.y) * heightRange + heightMin;
   }
 
-  /** Bilinear height in metres; the packed bytes cannot be filtered by the GPU, so taps are decoded first. */
-  float heightAt(vec2 uv) {
-    vec2 f = uv * heightSize - 0.5;
-    vec2 i = floor(f);
-    vec2 t = f - i;
-    ivec2 maxI = ivec2(int(heightSize) - 1);
-    ivec2 a = clamp(ivec2(i), ivec2(0), maxI);
-    ivec2 b = clamp(ivec2(i) + 1, ivec2(0), maxI);
-    float h00 = decodeHeight(texelFetch(heightMap, a, 0));
-    float h10 = decodeHeight(texelFetch(heightMap, ivec2(b.x, a.y), 0));
-    float h01 = decodeHeight(texelFetch(heightMap, ivec2(a.x, b.y), 0));
-    float h11 = decodeHeight(texelFetch(heightMap, b, 0));
-    return mix(mix(h00, h10, t.x), mix(h01, h11, t.x), t.y) * heightRange + heightMin;
+  float globalHeight(vec3 up) { return packedBilinear(globalHeightMap, equirectUv(toMoonFixed(up)), globalHeightSize, true); }
+  float innerHeight(vec2 xy) { return packedBilinear(innerHeightMap, xy / (2.0 * innerRhoMax) + 0.5, vec2(innerSize), false); }
+  float outerHeight(vec2 xy) { return packedBilinear(outerHeightMap, xy / (2.0 * outerRhoMax) + 0.5, vec2(outerSize), false); }
+
+  /** Weight of a polar tile at radius r: 1 well inside, fading to 0 at its edge. */
+  float tileWeight(float r, float edge) { return 1.0 - smoothstep(edge * (1.0 - BLEND_FRACTION), edge, r); }
+
+  /** Blend weights of the inner and outer polar tiles at a point (zero in the north). */
+  vec2 polarWeights(vec3 up, out vec2 xy) {
+    xy = polarPlane(up);
+    if (toMoonFixed(up).z > 0.0) return vec2(0.0);
+    float r = length(xy);
+    return vec2(tileWeight(r, innerRhoEdge), hasOuter > 0.5 ? tileWeight(r, outerRhoEdge) : 0.0);
+  }
+
+  /** Terrain height in metres, blending every source that covers the point. */
+  float terrainHeight(vec3 up) {
+    vec2 xy;
+    vec2 w = polarWeights(up, xy);
+    if (w.x >= 1.0) return innerHeight(xy);
+    float h = w.y >= 1.0 ? outerHeight(xy) : globalHeight(up);
+    if (w.y > 0.0 && w.y < 1.0) h = mix(h, outerHeight(xy), w.y);
+    if (w.x > 0.0) h = mix(h, innerHeight(xy), w.x);
+    return h;
+  }
+
+  /** The single finest source covering the point (no blending): cheap enough for shadow marching. */
+  float terrainHeightFast(vec3 up) {
+    vec2 xy;
+    vec2 w = polarWeights(up, xy);
+    if (w.x > 0.5) return innerHeight(xy);
+    if (w.y > 0.5) return outerHeight(xy);
+    return globalHeight(up);
+  }
+
+  /** Ground spacing of the finest data at a point, metres (sets the first shadow-march step). */
+  float dataSpacingM(vec3 up) {
+    vec2 xy;
+    vec2 w = polarWeights(up, xy);
+    if (w.x > 0.5) return 2.0 * innerRhoMax * MOON_RADIUS_M / innerSize;
+    if (w.y > 0.5) return 2.0 * outerRhoMax * MOON_RADIUS_M / outerSize;
+    return 2.0 * PI * MOON_RADIUS_M / globalHeightSize.x;
   }
 `;
 
+// ---------------------------------------------------------------- clipmap vertex shader
+
 /**
- * The cap grid is not uniform: vertices crowd around `focus` (the point the camera looks at) and
- * thin out toward the far edge, like a game terrain LOD. `density` near 0 packs them tightly.
+ * One clipmap level. Vertices sit on fixed lattice points of the level's parameter space
+ * (longitude/latitude in radians, or the south polar plane), so they never slide over the ground.
+ * In the outer band of a level, odd vertices morph onto the edges of the next coarser level so the
+ * two meet exactly. Define POLAR_PARAM for the polar plane.
  */
-export const polarVertexShader = /* glsl */ `
-  ${common}
-  ${polarCommon}
-  ${craterField}
-  /** Vertex spacing at the grid centre, km; it grows with the warp toward the edges. */
-  uniform float centerSpacingKm;
+const clipmapVertex = /* glsl */ `
+  uniform vec2 levelOrigin;
+  uniform float levelCell;
+  uniform float gridCells;
+  uniform float isCoarsest;
+  /** Kilometres of ground per parameter unit (both parameterisations are ~radians on a unit sphere). */
+  uniform float kmPerParam;
   uniform float heightScale;
   uniform float relief;
-  uniform vec2 focus;
-  uniform float extent;
-  uniform float density;
 
-  varying vec2 vXY;
+  varying vec2 vParam;
   varying vec3 vUp;
   varying vec3 vWorldPos;
 
+  vec3 paramToUp(vec2 prm) {
+  #ifdef POLAR_PARAM
+    return polarToScene(prm);
+  #else
+    float lat = clamp(prm.y, -0.5 * PI, 0.5 * PI);
+    vec3 m = vec3(cos(lat) * cos(prm.x), cos(lat) * sin(prm.x), sin(lat));
+    return vec3(m.x, m.z, -m.y);
+  #endif
+  }
+
+  vec3 groundPoint(vec2 prm, float spacingKm) {
+    vec3 up = paramToUp(prm);
+    float h = terrainHeight(up) + detailHeightM(up, spacingKm);
+    return up * (1.0 + h * heightScale * relief);
+  }
+
   void main() {
-    vec2 g = position.xy;
-    vec2 xy = focus + g * (density + (1.0 - density) * g * g) * extent;
-    // Pin vertices that land beyond the tile onto its rim. Otherwise, when the camera looks away
-    // from the pole, huge triangles would cut chords across the sphere and smear polar texture
-    // over the rest of the Moon.
-    float rho = length(xy);
-    if (rho > rhoMax) xy *= rhoMax / rho;
-    vec3 up = polarToScene(xy);
-    float b = edgeBlend(xy);
-    float h = b > 0.0 ? mix(heightAt(polarUv(xy)), globalHeightAt(up), b) : heightAt(polarUv(xy));
-    vec2 spread = (density + 3.0 * (1.0 - density) * g * g) / density;
-    h += detailHeightM(up, centerSpacingKm * max(spread.x, spread.y));
-    vec4 world = modelMatrix * vec4(up * (1.0 + h * heightScale * relief), 1.0);
-    vXY = xy;
-    vUp = up;
+    vec2 idx = floor(position.xy * gridCells + 0.5);
+    vec2 prm = levelOrigin + idx * levelCell;
+    vec2 edge = abs(position.xy - 0.5) * 2.0;
+    float morph = isCoarsest > 0.5 ? 0.0 : smoothstep(0.7, 0.95, max(edge.x, edge.y));
+    float cellKm = levelCell * kmPerParam;
+    vec3 pos = groundPoint(prm, cellKm * mix(1.0, 2.0, morph));
+    vec2 odd = mod(idx, 2.0);
+    if (morph > 0.0 && odd.x + odd.y > 0.0) {
+      // Halfway along the coarser level's edge, as that level draws it (a straight chord).
+      vec3 a = groundPoint(prm - odd * levelCell, 2.0 * cellKm);
+      vec3 b = groundPoint(prm + odd * levelCell, 2.0 * cellKm);
+      pos = mix(pos, 0.5 * (a + b), morph);
+    }
+    vec4 world = modelMatrix * vec4(pos, 1.0);
+    vParam = prm;
+    vUp = normalize(pos);
     vWorldPos = world.xyz;
     gl_Position = projectionMatrix * viewMatrix * world;
   }
 `;
 
-export const polarFragmentShader = /* glsl */ `
-  ${common}
-  ${equirectSampling}
-  ${craterField}
-  ${lighting}
-  ${polarCommon}
-  uniform sampler2D colorMap;
-  uniform sampler2D normalMap;
+// ---------------------------------------------------------------- fragment shader
+
+const terrainFragment = /* glsl */ `
   uniform sampler2D globalColorMap;
   uniform sampler2D globalNormalMap;
-  uniform float rhoEdge;
-  uniform float innerRho;
+  uniform sampler2D innerColorMap;
+  uniform sampler2D innerNormalMap;
+  uniform sampler2D outerColorMap;
+  uniform sampler2D outerNormalMap;
   uniform float sunRadius;
+  uniform vec4 holeRect;
+  uniform float hasHole;
+  /** Drawing limits per mesh: the globe stops a little inside the polar mesh, which ends at its tile. */
+  uniform float minLatitude;
+  uniform float maxPolarRho;
 
-  varying vec2 vXY;
+  varying vec2 vParam;
   varying vec3 vUp;
   varying vec3 vWorldPos;
 
-  const int SHADOW_STEPS = 40;
-  const float SHADOW_FIRST_M = 80.0;
-  const float SHADOW_GROWTH = 1.23;
+  const int SHADOW_STEPS = 36;
+  const float SHADOW_GROWTH = 1.25;
   const float OBSERVER_M = 2.0;
 
-  /**
-   * Share of the solar disc visible from this point: march toward the Sun over the terrain and
-   * keep the worst margin, measured in solar radii, so shadow edges get a true penumbra.
-   */
-  float sunVisibility(vec2 xy, vec3 up) {
-    vec3 east;
-    vec3 north;
-    localAxes(up, east, north);
-    float se = dot(sunDir, east);
-    float sn = dot(sunDir, north);
+  void surface(vec3 up, out vec3 albedo, out vec3 tangentNormal) {
+    vec2 uv = equirectUv(toMoonFixed(up));
+    albedo = sampleEquirect(globalColorMap, uv).rgb;
+    tangentNormal = sampleEquirect(globalNormalMap, uv).xyz * 2.0 - 1.0;
+    vec2 xy;
+    vec2 w = polarWeights(up, xy);
+    if (w.y > 0.0) {
+      vec2 ouv = xy / (2.0 * outerRhoMax) + 0.5;
+      albedo = mix(albedo, texture2D(outerColorMap, ouv).rgb, w.y);
+      tangentNormal = mix(tangentNormal, texture2D(outerNormalMap, ouv).xyz * 2.0 - 1.0, w.y);
+    }
+    if (w.x > 0.0) {
+      vec2 iuv = xy / (2.0 * innerRhoMax) + 0.5;
+      albedo = mix(albedo, texture2D(innerColorMap, iuv).rgb, w.x);
+      tangentNormal = mix(tangentNormal, texture2D(innerNormalMap, iuv).xyz * 2.0 - 1.0, w.x);
+    }
+  }
+
+  /** Share of the solar disc visible: march along the ground toward the Sun, keep the worst margin. */
+  float sunVisibility(vec3 up) {
     float su = dot(sunDir, up);
-    float horiz = length(vec2(se, sn));
-    if (horiz < 1e-6) return su > 0.0 ? 1.0 : 0.0;
+    if (su <= -0.05) return 0.0;
+    vec3 flatSun = sunDir - su * up;
+    float horiz = length(flatSun);
+    if (horiz < 1e-6) return 1.0;
     float tanEl = su / horiz;
-
-    // In the polar plane, north points away from the pole and east is 90° counter-clockwise from it.
-    vec2 radial = length(xy) > 1e-7 ? normalize(xy) : vec2(1.0, 0.0);
-    vec2 eastPlane = vec2(-radial.y, radial.x);
-    vec2 dir = normalize(se * eastPlane + sn * radial);
-
-    vec2 uv0 = polarUv(xy);
-    // Shadows follow the terrain as drawn, so they stay consistent with the relief setting.
-    float h0 = heightAt(uv0) * relief + OBSERVER_M;
-    float metresPerUv = 2.0 * rhoMax * MOON_RADIUS_M;
-    float vis = 1.0;
-    // Offset the march per pixel so the fixed step spacing never shows up as stepped shadow edges.
+    vec3 dir = flatSun / horiz;
+    float h0 = terrainHeightFast(up) * relief + OBSERVER_M;
     // Jitter anchored to the ground (not the screen), so shadow edges do not shimmer while moving.
-    float jitter = fract(52.9829189 * fract(dot(floor(polarUv(xy) * 16384.0), vec2(0.06711056, 0.00583715))));
-    float d = SHADOW_FIRST_M * (0.8 + 0.4 * jitter);
+    float jitter = fract(52.9829189 * fract(dot(floor(equirectUv(toMoonFixed(up)) * vec2(65536.0, 32768.0)), vec2(0.06711056, 0.00583715))));
+    float d = dataSpacingM(up) * (0.8 + 0.4 * jitter);
+    float vis = 1.0;
     for (int i = 0; i < SHADOW_STEPS; i++) {
-      vec2 uv = uv0 + dir * (d / metresPerUv);
-      if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) break;
+      float a = d / MOON_RADIUS_M;
+      vec3 q = normalize(up * cos(a) + dir * sin(a));
       // The sphere curves away beneath a straight sunbeam.
       float beam = h0 + d * tanEl + d * d / (2.0 * MOON_RADIUS_M);
-      float blockAngle = (heightAt(uv) * relief - beam) / d;
+      float blockAngle = (terrainHeightFast(q) * relief - beam) / d;
       vis = min(vis, clamp(0.5 - blockAngle / (2.0 * sunRadius), 0.0, 1.0));
       if (vis <= 0.0) break;
       d *= SHADOW_GROWTH;
@@ -504,21 +434,26 @@ export const polarFragmentShader = /* glsl */ `
   }
 
   void main() {
-    float r = length(vXY);
-    if (r > rhoEdge || r < innerRho) discard; // a coarser mesh draws outside, a finer tile inside
+    if (hasHole > 0.5 && all(greaterThan(vParam, holeRect.xy)) && all(lessThan(vParam, holeRect.zw))) discard;
+  #ifdef POLAR_PARAM
+    if (length(vParam) > maxPolarRho) discard;
+  #else
+    if (abs(vParam.y) > 0.5 * PI || vParam.y < minLatitude) discard;
+  #endif
     vec3 up = normalize(vUp);
-    vec2 uv = polarUv(vXY);
-    vec3 albedo = texture2D(colorMap, uv).rgb;
-    vec3 tangentNormal = texture2D(normalMap, uv).xyz * 2.0 - 1.0;
-    float b = edgeBlend(vXY);
-    if (b > 0.0) {
-      vec2 guv = globalUv(up);
-      albedo = mix(albedo, sampleEquirect(globalColorMap, guv).rgb, b);
-      tangentNormal = mix(tangentNormal, sampleEquirect(globalNormalMap, guv).xyz * 2.0 - 1.0, b);
-    }
-    float shadow = dot(up, sunDir) > -0.05 ? sunVisibility(vXY, up) : 0.0;
-    gl_FragColor = vec4(shade(up, tangentNormal, albedo, shadow, vWorldPos), 1.0);
+    vec3 albedo;
+    vec3 tangentNormal;
+    surface(up, albedo, tangentNormal);
+    gl_FragColor = vec4(shade(up, tangentNormal, albedo, sunVisibility(up), vWorldPos), 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
 `;
+
+const vertexChunks = `${common}\n${terrainData}\n${craterField}\n${clipmapVertex}`;
+const fragmentChunks = `${common}\n${equirectSampling}\n${craterField}\n${lighting}\n${terrainData}\n${terrainFragment}`;
+
+export const globeVertexShader = vertexChunks;
+export const globeFragmentShader = fragmentChunks;
+export const polarVertexShader = `#define POLAR_PARAM\n${vertexChunks}`;
+export const polarFragmentShader = `#define POLAR_PARAM\n${fragmentChunks}`;

@@ -144,17 +144,3 @@ export function flightPose(from: CameraPose, to: CameraPose, e: number): CameraP
   return { target, forward, range, tilt };
 }
 
-/**
- * Grid density for a camera range, in power-of-two steps between `min` and 1. Stepping (instead of
- * following the zoom smoothly) keeps vertices still while zooming within a level.
- */
-export function steppedDensity(range: number, perRange: number, min: number): number {
-  const raw = MathUtils.clamp(range * perRange, min, 1);
-  return Math.min(1, min * Math.pow(2, Math.round(Math.log2(raw / min))));
-}
-
-/** Snaps `value` to a multiple of `step`, so a moving focus only shifts the grid by whole cells. */
-export const snapTo = (value: number, step: number): number => Math.round(value / step) * step;
-
-/** How many centre cells the grid waits before following the camera. */
-export const SNAP_CELLS = 16;

@@ -10,9 +10,8 @@ import { siteKey, useNavigator, type SelectedSite } from '../state/store';
 import { CameraRig } from './CameraRig';
 import { Earth } from './Earth';
 import type { CameraFocus } from './globeCamera';
-import { Moon } from './Moon';
-import { PolarCap, type MoonLighting } from './PolarCap';
 import { createSky, updateSky, type SkyState } from './sky';
+import { Terrain as TerrainMesh, type MoonLighting } from './Terrain';
 import { SiteMarker } from './SiteMarker';
 import { Stars } from './Stars';
 import { Sun } from './Sun';
@@ -81,19 +80,15 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOute
       <Stars radius={STAR_RADIUS} />
       <Sun sky={sky} distance={SUN_DISTANCE} discRadius={SUN_DISTANCE * Math.tan((SUN_RADIUS_DEG * Math.PI) / 180)} />
       <Suspense fallback={null}>
-        <Moon
+        <TerrainMesh
           sunDir={sky.sunDir}
           earthDir={sky.earthDir}
           heightRange={heightRange}
-          polarEdgeLat={polarOuter?.edgeLat ?? polar.edgeLat}
+          polar={polar}
+          polarOuter={polarOuter}
           lighting={lighting}
           focus={focus}
         />
-        <PolarCap sunDir={sky.sunDir} earthDir={sky.earthDir} heightRange={heightRange} polar={polar} lighting={lighting} focus={focus} blendToGlobal={!polarOuter} />
-        {/* Same boundary as the globe: the globe leaves this ring to it, so they must appear together. */}
-        {polarOuter && (
-          <PolarCap sunDir={sky.sunDir} earthDir={sky.earthDir} heightRange={heightRange} polar={polarOuter} lighting={lighting} focus={focus} blendToGlobal />
-        )}
         <Earth sky={sky} radius={EARTH_RADIUS_KM / MOON_RADIUS_KM} />
       </Suspense>
       <SiteMarker lat={site.lat} lon={site.lon} label={site.name} isPrimary />

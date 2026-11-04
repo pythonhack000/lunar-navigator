@@ -275,7 +275,7 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
         </section>
       )}
       {isOpen && (
-        <section className="panel luna-panel" aria-label="LUNA">
+        <section className={step ? 'panel luna-panel is-tour' : 'panel luna-panel'} aria-label="LUNA">
           <header className="luna-head-row">
             <RobotAvatar isTalking={isThinking || step !== null} />
             <div>

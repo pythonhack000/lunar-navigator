@@ -427,11 +427,13 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 /* LUNA sits at the top right of the 3D view, clear of the panels and the comparison */
 .luna { right: 430px; top: 92px; bottom: auto; flex-direction: column-reverse; align-items: flex-end; }
 /* Below the launcher, reaching down to just above the timeline dock (~340px of chrome above and below). */
-.luna-panel { height: max(320px, calc(100vh - 360px)); max-height: none; }
-.luna-panel .luna-messages { flex: 1; }
-.luna-panel .luna-tour { flex: 1; display: flex; flex-direction: column; }
+/* The chat reaches down to just above the timeline; the conversation shrinks (and scrolls) to make
+   room for the questions, so nothing ever spills out of the panel. */
+.luna-panel { height: max(320px, calc(100vh - 360px)); max-height: none; overflow: hidden; }
+.luna-panel .luna-messages { flex: 1; min-height: 0; }
+/* A tour step is a few sentences: the panel fits them instead of leaving a tall empty space. */
+.luna-panel.is-tour { height: auto; }
 .luna-panel .luna-tour p { font-size: 14px; line-height: 1.55; }
-.luna-panel .luna-tour-nav { margin-top: auto; }
 @media (max-width: 960px) { .luna { top: auto; bottom: 12px; right: 12px; flex-direction: column; } .luna-panel { height: auto; max-height: 60vh; } }
 
 /* Comparison */

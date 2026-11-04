@@ -249,6 +249,21 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
   background: radial-gradient(circle at 35% 30%, #23262d, #0b0c0f); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); padding: 6px;
 }
 .luna-launcher:hover { border-color: var(--sun); }
+/* LUNA waits off stage until the camera lands, then flies in and, on a first visit, waves hello. */
+.luna:not(.is-arrived) .luna-launcher { visibility: hidden; }
+.luna.is-arrived .luna-launcher { animation: luna-arrive 1s cubic-bezier(0.2, 0.9, 0.3, 1.15) both; }
+.luna.is-arrived .luna-launcher.is-waving { animation: luna-wave 1.6s ease-in-out infinite; }
+.luna-greet { width: 300px; transform-origin: bottom right; animation: luna-greet-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
+.luna-greet h3 { font-size: 15px; margin: 0 0 6px; }
+.luna-greet p { color: var(--muted); font-size: 13px; }
+@keyframes luna-arrive {
+  from { opacity: 0; transform: translate(160px, -260px) rotate(-30deg) scale(0.4); }
+  70% { opacity: 1; transform: translate(0, 10px) rotate(8deg) scale(1.06); }
+  to { transform: none; }
+}
+@keyframes luna-wave { 0%, 60%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(-12deg); } 20%, 40% { transform: rotate(12deg); } }
+@keyframes luna-greet-in { from { opacity: 0; transform: translateY(10px) scale(0.92); } }
+@media (prefers-reduced-motion: reduce) { .luna-launcher, .luna-greet { animation: none !important; } }
 .luna-panel { width: 340px; max-height: 60vh; display: flex; flex-direction: column; gap: 10px; }
 .luna-head-row { display: flex; align-items: center; gap: 10px; }
 .luna-head-row .luna-avatar { width: 34px; height: 34px; }
@@ -417,7 +432,7 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 .intro__track { flex: 0 1 240px; height: 2px; border-radius: 99px; background: var(--line); overflow: hidden; }
 .intro__track span { display: block; height: 100%; background: var(--sun); transition: width 0.4s ease; }
 .intro__foot small { color: var(--faint); font: 12px var(--mono); }
-.intro__skip { margin-left: auto; }
+.intro__lang { margin-left: auto; font: 12px var(--mono); }
 @keyframes intro-in { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) {
   .intro__titles { animation: none; }

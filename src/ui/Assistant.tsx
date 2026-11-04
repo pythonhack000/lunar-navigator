@@ -27,6 +27,8 @@ const HIGHLIGHT_CLASS = 'tour-highlight';
 /** Ranking uses a coarser time step than the panels: plenty for comparing whole months. */
 const RANK_STEP_MS = 3 * HOUR_MS;
 const TYPE_MS_PER_CHAR = 14;
+/** The greeting waits for LUNA's fly-in (index.css) to finish. */
+const GREET_DELAY_MS = 1100;
 
 function readFlag(key: string): boolean {
   try {
@@ -127,14 +129,24 @@ export function Assistant({ analysis, terrain, windowStart }: Props) {
   const { selectSite, toggleCompare } = useNavigator.getState();
   const text = assistantText(lang);
   const tour = tourFor(lang);
-  const [isOpen, setOpen] = useState(() => !readFlag(SEEN_KEY));
-  const [tourStep, setTourStep] = useState<number | null>(() => (readFlag(SEEN_KEY) ? null : 0));
+  const landed = useNavigator((s) => s.landed);
+  const [isFirstVisit] = useState(() => !readFlag(SEEN_KEY));
+  const [isOpen, setOpen] = useState(false);
+  const [isGreeting, setGreeting] = useState(false);
+  const [tourStep, setTourStep] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isThinking, setThinking] = useState(false);
   const [hasVoice, setVoice] = useState(() => readFlag(VOICE_KEY));
   const nextId = useRef(1);
   const listRef = useRef<HTMLDivElement>(null);
   const step = tourStep === null ? null : tour[tourStep];
+
+  // LUNA flies in once the camera has landed; on a first visit she then says hello.
+  useEffect(() => {
+    if (!landed || !isFirstVisit) return;
+    const id = window.setTimeout(() => setGreeting(true), GREET_DELAY_MS);
+    return () => window.clearTimeout(id);
+  }, [landed, isFirstVisit]);
 
   // Spotlight the element the current tour step talks about, and read the step aloud.
   useEffect(() => {
@@ -163,6 +175,18 @@ export function Assistant({ analysis, terrain, windowStart }: Props) {
   const say = (from: Message['from'], lines: string[], picks?: RankedSite[]) => {
     setMessages((m) => [...m, { id: nextId.current++, from, lines, picks }]);
     if (from === 'luna' && hasVoice) speak(lines.join(' '), lang);
+  };
+
+  const acceptGreeting = () => {
+    setGreeting(false);
+    setOpen(true);
+    // The greeting already introduced LUNA, so the tour starts at its first real step.
+    setTourStep(Math.min(1, tour.length - 1));
+  };
+
+  const declineGreeting = () => {
+    setGreeting(false);
+    writeFlag(SEEN_KEY, true);
   };
 
   const endTour = () => {
@@ -202,7 +226,17 @@ export function Assistant({ analysis, terrain, windowStart }: Props) {
   const lastLunaId = [...messages].reverse().find((m) => m.from === 'luna')?.id;
 
   return (
-    <div className="luna" data-open={isOpen}>
+    <div className={landed ? 'luna is-arrived' : 'luna'} data-open={isOpen}>
+      {isGreeting && !isOpen && (
+        <section className="panel luna-greet" role="dialog" aria-label={text.greetTitle}>
+          <h3>{text.greetTitle}</h3>
+          <Typewriter key={lang} lines={[text.greetBody]} isLive />
+          <div className="luna-tour-nav">
+            <button type="button" className="ghost-button" onClick={declineGreeting}>{text.greetNo}</button>
+            <button type="button" className="primary-button" onClick={acceptGreeting}>{text.greetYes}</button>
+          </div>
+        </section>
+      )}
       {isOpen && (
         <section className="panel luna-panel" aria-label="LUNA">
           <header className="luna-head-row">
@@ -272,8 +306,8 @@ export function Assistant({ analysis, terrain, windowStart }: Props) {
           )}
         </section>
       )}
-      <button type="button" className="luna-launcher" aria-label="LUNA" onClick={() => setOpen(!isOpen)}>
-        <RobotAvatar isTalking={isThinking} />
+      <button type="button" className={isGreeting ? 'luna-launcher is-waving' : 'luna-launcher'} aria-label="LUNA" onClick={() => (isGreeting ? acceptGreeting() : setOpen(!isOpen))}>
+        <RobotAvatar isTalking={isThinking || isGreeting} />
       </button>
     </div>
   );

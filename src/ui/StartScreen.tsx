@@ -28,6 +28,7 @@ export function StartScreen({ downloadShare }: { downloadShare: number }) {
   const sceneReady = useNavigator((s) => s.sceneReady);
   const finishIntro = useNavigator((s) => s.finishIntro);
   const arriveIntro = useNavigator((s) => s.arriveIntro);
+  const setLang = useNavigator((s) => s.setLang);
   const [{ lat, lon, time }] = useState(() => {
     const { site, time: now } = useNavigator.getState();
     return { lat: site.lat, lon: site.lon, time: now };
@@ -90,6 +91,9 @@ export function StartScreen({ downloadShare }: { downloadShare: number }) {
           <span style={{ width: `${percent}%` }} />
         </div>
         <small>{percent}%</small>
+        <button type="button" className="ghost-button intro__lang" aria-label={translate(lang, 'lang')} onClick={() => setLang(lang === 'en' ? 'ru' : 'en')}>
+          {lang === 'en' ? 'RU' : 'EN'}
+        </button>
         {!arrived && (
           <button type="button" className="ghost-button intro__skip" onClick={() => setSkip(true)}>
             {translate(lang, 'intro.skip')}

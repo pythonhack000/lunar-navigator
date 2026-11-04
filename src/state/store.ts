@@ -23,7 +23,15 @@ export type SiteKind = 'custom' | 'brightest' | 'nearIce';
 
 const LANG_KEY = 'lunar-lang';
 
+/**
+ * `?lang=en` in the link wins (handy for sending the jury an English link), then the visitor's own
+ * earlier choice, then the browser language.
+ */
 function initialLang(): Lang {
+  if (typeof window !== 'undefined') {
+    const fromLink = new URLSearchParams(window.location.search).get('lang');
+    if (fromLink === 'en' || fromLink === 'ru') return fromLink;
+  }
   try {
     const saved = window.localStorage.getItem(LANG_KEY);
     if (saved === 'en' || saved === 'ru') return saved;

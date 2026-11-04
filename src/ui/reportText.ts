@@ -9,7 +9,7 @@ const TEXT = {
     factors: { sun: 'Sunlight', link: 'DSN link', slope: 'Slope', ice: 'Ice' },
     noIce: '> 20 km',
     km: 'km',
-    month: 'Next lunar month',
+    period: 'Over the period',
     rows: {
       sun: 'Sunlight (power)',
       earth: 'Earth above the terrain',
@@ -41,7 +41,7 @@ const TEXT = {
     factors: { sun: 'Свет', link: 'Связь DSN', slope: 'Уклон', ice: 'Лёд' },
     noIce: '> 20 км',
     km: 'км',
-    month: 'Ближайший лунный месяц',
+    period: 'За выбранный период',
     rows: {
       sun: 'Свет (энергия)',
       earth: 'Земля над рельефом',

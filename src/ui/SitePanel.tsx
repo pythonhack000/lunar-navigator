@@ -9,6 +9,8 @@ import { MAX_COMPARE, siteKey, useNavigator } from '../state/store';
 import { HorizonChart } from './HorizonChart';
 import { LandingCalendar } from './LandingCalendar';
 import { MissionReport } from './MissionReport';
+import { ReportDialog } from './ReportDialog';
+import type { PeriodRange } from '../lib/periodReport';
 
 interface SitePanelProps {
   analysis: SiteAnalysis;
@@ -102,10 +104,9 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
   const site = useNavigator((s) => s.site);
   const compare = useNavigator((s) => s.compare);
   const toggleCompare = useNavigator((s) => s.toggleCompare);
-  const [showDetails, setShowDetails] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [isPrinting, setPrinting] = useState(false);
-  const closeReport = useCallback(() => setPrinting(false), []);
+  const [report, setReport] = useState<'choosing' | PeriodRange | null>(null);
+  const closeReport = useCallback(() => setReport(null), []);
   const { state, summary, profile, timeline } = analysis;
   const inCompare = compare.some((c) => siteKey(c) === siteKey(site));
   const compareFull = !inCompare && compare.length >= MAX_COMPARE;
@@ -119,13 +120,15 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
           <p className="muted">
             {formatLatLon(site.lat, site.lon)} · {Math.round(profile.siteHeightM).toLocaleString('en-US')} m
           </p>
-          <button type="button" className="link-button ground-enter" onClick={() => useNavigator.getState().enterGroundView()}>
-            {t('ground.enter')} →
+        </div>
+        <div className="site-panel__actions">
+          <button type="button" className="primary-button ground-enter" onClick={() => useNavigator.getState().enterGroundView()}>
+            {t('ground.enter')}
+          </button>
+          <button type="button" className={inCompare ? 'ghost-button is-on' : 'ghost-button'} disabled={compareFull} onClick={() => toggleCompare(site)}>
+            {inCompare ? t('panel.inCompare') : t('panel.compare')}
           </button>
         </div>
-        <button type="button" className={inCompare ? 'ghost-button is-on' : 'ghost-button'} disabled={compareFull} onClick={() => toggleCompare(site)}>
-          {inCompare ? t('panel.inCompare') : t('panel.compare')}
-        </button>
       </header>
 
       <div className="readouts" data-tour="readouts">
@@ -155,12 +158,15 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
           <span><b>{formatPercent(summary.earthShare)}</b> {t('earthView')}</span>
           <span><b>{formatPercent(analysis.powerLinkShare)}</b> {t('powerLink')}</span>
         </div>
+        <p className="month__extremes">
+          {t('month.extremes', {
+            n: summary.longestDarkHours > 0 ? formatHours(summary.longestDarkHours, lang) : '—',
+            b: summary.longestCommsGapHours > 0 ? formatHours(summary.longestCommsGapHours, lang) : '—',
+          })}
+        </p>
         <div className="month__actions">
-          <button type="button" className="link-button" aria-expanded={showDetails} onClick={() => setShowDetails(!showDetails)}>
-            {t('panel.details')} {showDetails ? '▾' : '▸'}
-          </button>
           <div className="month__buttons">
-            <button type="button" className="ghost-button" onClick={() => setPrinting(true)}>
+            <button type="button" className="ghost-button" onClick={() => setReport('choosing')}>
               {t('panel.report')}
             </button>
             <button type="button" className="ghost-button" onClick={() => setShowCalendar(true)}>
@@ -168,15 +174,10 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
             </button>
           </div>
         </div>
-        {showDetails && (
-          <dl className="month__grid">
-            <div><dt>{t('night')}</dt><dd>{summary.longestDarkHours > 0 ? formatHours(summary.longestDarkHours, lang) : '—'}</dd></div>
-            <div><dt>{t('blackout')}</dt><dd>{summary.longestCommsGapHours > 0 ? formatHours(summary.longestCommsGapHours, lang) : '—'}</dd></div>
-          </dl>
-        )}
       </div>
       {showCalendar && <LandingCalendar analysis={analysis} onClose={() => setShowCalendar(false)} />}
-      {isPrinting && <MissionReport analysis={analysis} score={score} onDone={closeReport} />}
+      {report === 'choosing' && <ReportDialog onCreate={setReport} onClose={closeReport} />}
+      {report !== null && report !== 'choosing' && <MissionReport analysis={analysis} score={score} range={report} onDone={closeReport} />}
     </section>
   );
 }

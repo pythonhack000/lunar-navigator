@@ -1,16 +1,18 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import type { SiteAnalysis } from '../hooks/useSiteAnalysis';
 import type { SiteScoreView } from '../hooks/useSiteScore';
 import { siteLabel } from '../i18n';
 import { DSN_STATIONS } from '../lib/dsn';
 import { formatDeg, formatHours, formatLatLon, formatPercent } from '../lib/format';
+import { analyzePeriod, type PeriodRange } from '../lib/periodReport';
 import { bestLandingDays, stationShares } from '../lib/report';
+import { siteScore } from '../lib/siteScore';
 import { useNavigator } from '../state/store';
 import { HorizonChart } from './HorizonChart';
 import { reportText } from './reportText';
 
-type Props = { analysis: SiteAnalysis; score: SiteScoreView; onDone: () => void };
+type Props = { analysis: SiteAnalysis; score: SiteScoreView; range: PeriodRange; onDone: () => void };
 
 const BEST_DAYS = 5;
 
@@ -18,16 +20,20 @@ const BEST_DAYS = 5;
  * A one-page report for the selected site, laid out for paper: it is rendered off screen and handed
  * to the browser's print dialog, where "Save as PDF" turns it into a document to leave with a jury.
  */
-export function MissionReport({ analysis, score, onDone }: Props) {
+export function MissionReport({ analysis, score: view, range, onDone }: Props) {
   const lang = useNavigator((s) => s.lang);
   const site = useNavigator((s) => s.site);
   const text = reportText(lang);
   const locale = lang === 'ru' ? 'ru-RU' : 'en-GB';
-  const { summary, timeline, profile, state } = analysis;
-  const end = timeline.start + (timeline.sun.length - 1) * timeline.stepMs;
+  const { profile, state } = analysis;
+  const period = useMemo(() => analyzePeriod(site, profile, range), [site, profile, range]);
+  const { summary, timeline } = period;
+  // The score is recomputed for the chosen period: slope and ice stay, light and link change.
+  const score = { ...view, score: siteScore({ sunShare: summary.sunlitShare, linkShare: period.linkShare, slopeDeg: view.slopeDeg, iceKm: view.iceKm }) };
+  const end = range.start + range.spanMs;
   const date = (t: number) => new Date(t).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
-  const days = bestLandingDays(timeline, analysis.link, BEST_DAYS);
-  const shares = stationShares(analysis.link, DSN_STATIONS.length);
+  const days = bestLandingDays(timeline, period.link, BEST_DAYS);
+  const shares = stationShares(period.link, DSN_STATIONS.length);
 
   useEffect(() => {
     window.addEventListener('afterprint', onDone);
@@ -42,8 +48,8 @@ export function MissionReport({ analysis, score, onDone }: Props) {
   const rows: [string, string][] = [
     [text.rows.sun, formatPercent(summary.sunlitShare)],
     [text.rows.earth, formatPercent(summary.earthShare)],
-    [text.rows.link, formatPercent(analysis.linkShare)],
-    [text.rows.powerLink, formatPercent(analysis.powerLinkShare)],
+    [text.rows.link, formatPercent(period.linkShare)],
+    [text.rows.powerLink, formatPercent(period.powerLinkShare)],
     [text.rows.night, summary.longestDarkHours > 0 ? formatHours(summary.longestDarkHours, lang) : '—'],
     [text.rows.blackout, summary.longestCommsGapHours > 0 ? formatHours(summary.longestCommsGapHours, lang) : '—'],
   ];
@@ -84,7 +90,7 @@ export function MissionReport({ analysis, score, onDone }: Props) {
 
       <div className="report__cols">
         <section>
-          <h2>{text.month}</h2>
+          <h2>{text.period}</h2>
           <table>
             <tbody>
               {rows.map(([label, value]) => (
@@ -122,7 +128,7 @@ export function MissionReport({ analysis, score, onDone }: Props) {
 
       <section className="report__horizon">
         <h2>{text.horizon}</h2>
-        <HorizonChart profile={profile} timeline={timeline} state={state} lat={site.lat} />
+        <HorizonChart profile={profile} timeline={analysis.timeline} state={state} lat={site.lat} />
       </section>
 
       <footer className="report__sources">

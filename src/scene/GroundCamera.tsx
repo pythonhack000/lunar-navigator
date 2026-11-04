@@ -1,13 +1,12 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
 import { MathUtils, PerspectiveCamera, Quaternion, Vector3 } from 'three';
-import { MOON_RADIUS_KM } from '../lib/ephemeris';
 import type { Terrain } from '../lib/terrain';
 import { useNavigator } from '../state/store';
 import type { CameraFocus } from './globeCamera';
 import { latLonToThree } from './coords';
 import { easeInOutCubic } from './globeCamera';
-import { lookDirection, yawPitchOf } from './groundView';
+import { eyePosition, lookDirection, yawPitchOf } from './groundView';
 import type { SkyState } from './sky';
 
 interface GroundCameraProps {
@@ -18,11 +17,6 @@ interface GroundCameraProps {
   focus: CameraFocus;
 }
 
-const MOON_RADIUS_M = MOON_RADIUS_KM * 1000;
-/** Eye height above the highest ground near the site: a lander mast or a small hill, not a tall tower. */
-const EYE_M = 80;
-/** Sample spacing used to find that highest ground (the CPU grid is coarser than the drawn mesh). */
-const CLEAR_SAMPLE_DEG = 0.004;
 const ENTER_S = 3;
 const LEAVE_S = 1.6;
 /** Near plane on the ground, Moon radii (~35 m): close enough for the foreground, far enough for depth precision. */
@@ -35,13 +29,6 @@ const PITCH_MAX = 0.9;
 const LOOK_DAMPING = 5;
 
 type Mode = 'off' | 'entering' | 'on' | 'leaving';
-
-function highestGroundM(terrain: Terrain, lat: number, lon: number): number {
-  let best = -Infinity;
-  for (let i = -1; i <= 1; i++)
-    for (let j = -1; j <= 1; j++) best = Math.max(best, terrain.heightAt(lat + i * CLEAR_SAMPLE_DEG, lon + j * CLEAR_SAMPLE_DEG / Math.max(Math.cos((lat * Math.PI) / 180), 1e-3)));
-  return best;
-}
 
 /**
  * "Stand at the site": takes the camera over from the orbit rig, glides down to the surface and
@@ -126,9 +113,7 @@ export function GroundCamera({ lat, lon, terrain, sky, focus }: GroundCameraProp
       target.quaternion.copy(camera.quaternion);
     } else {
       const upDir = latLonToThree(lat, lon).normalize();
-      const relief = useNavigator.getState().relief;
-      const radius = 1 + (highestGroundM(terrain, lat, lon) * relief + EYE_M) / MOON_RADIUS_M;
-      target.position.copy(upDir).multiplyScalar(radius);
+      target.position.copy(eyePosition(terrain, lat, lon, useNavigator.getState().relief));
       const look = lookDirection(upDir, view.current.yaw, view.current.pitch);
       camera.position.copy(target.position);
       camera.up.copy(upDir);

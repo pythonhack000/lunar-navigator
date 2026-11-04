@@ -571,3 +571,6 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 .report-dialog__periods button { flex: 1; }
 .report-dialog__go { align-self: flex-end; padding: 8px 16px; }
 .report-dialog__how { font-size: 12px; }
+
+/* Month summary and its buttons sit at the bottom of the site panel, with no dead space below. */
+.site-panel > .month { margin-top: auto; }

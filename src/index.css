@@ -485,3 +485,67 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
   .intro__titles { animation: none; }
 }
 
+
+/* Standing at the site: a clean frame (no side panels, no LUNA) and a small toolbar. */
+.app.is-ground .site-picker, .app.is-ground .brand, .app.is-ground .luna, .app.is-ground .compare,
+.app.is-ground .stage-controls, .app.is-ground .loading-bar { display: none; }
+.ground-hud {
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 4;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  animation: luna-greet-in 0.4s ease both;
+}
+.ground-hud__bar {
+  display: flex; align-items: center; gap: 8px; padding: 5px 5px 5px 16px; border-radius: 99px;
+  background: var(--panel); border: 1px solid var(--line-strong); backdrop-filter: blur(10px);
+}
+.ground-hud__title { font-weight: 600; font-size: 13px; margin-right: 4px; white-space: nowrap; }
+.ground-hud__hint { font-size: 12px; text-shadow: 0 1px 6px #000; text-align: center; }
+.ground-hud button { padding: 6px 12px; font-size: 12.5px; white-space: nowrap; }
+@media (min-width: 961px) { .ground-hud { left: calc(16px + 290px + 16px); right: calc(16px + 390px + 16px); transform: none; } }
+.ground-enter { color: var(--sun); font-size: 12.5px; margin-top: 6px; }
+
+/* Mission report: hidden on screen, the only thing on paper. Light theme, one accent. */
+.month__buttons { display: flex; gap: 8px; }
+.print-report { display: none; }
+@media print {
+  @page { size: A4; margin: 14mm; }
+  body > *:not(.print-report) { display: none !important; }
+  html, body { background: #fff !important; height: auto; overflow: visible; }
+  .print-report { display: block; }
+}
+.print-report {
+  --text: #14161a; --muted: #4a4f57; --faint: #7a808a; --line: #dfe2e6; --line-strong: #c9cdd3;
+  --terrain: #d9dce1; --terrain-edge: #9aa0a8;
+  color: var(--text); background: #fff; font-size: 11pt; line-height: 1.45;
+}
+.print-report h1 { font-size: 22pt; margin: 2pt 0; }
+.print-report h2 { font-size: 11pt; margin: 14pt 0 6pt; text-transform: none; color: var(--text); }
+.report__kicker { color: #b7791f; font-size: 9pt; font-weight: 600; margin: 0; }
+.report__head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #f2a93b; padding-bottom: 8pt; }
+.report__head p { margin: 0; color: var(--muted); }
+.report__score { display: grid; justify-items: end; line-height: 1; }
+.report__score span { font-size: 9pt; color: var(--muted); }
+.report__score b { font: 700 34pt var(--mono); color: #b7791f; }
+.report__score small { color: var(--faint); font-family: var(--mono); }
+.report__meta { color: var(--muted); font-size: 9pt; margin: 6pt 0 0; }
+.report__factors { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10pt; margin-top: 12pt; }
+.report__factors div { display: grid; grid-template-columns: 1fr auto; gap: 3pt; }
+.report__factors span { color: var(--muted); font-size: 9pt; }
+.report__factors b { font-family: var(--mono); font-size: 10pt; }
+.report__factors i { grid-column: 1 / -1; height: 4pt; background: var(--line); border-radius: 2pt; overflow: hidden; }
+.report__factors em { display: block; height: 100%; background: #f2a93b; }
+.report__cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18pt; }
+.print-report table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+.print-report th, .print-report td { text-align: left; padding: 4pt 0; border-bottom: 1px solid var(--line); font-weight: 400; }
+.print-report td { text-align: right; font-family: var(--mono); }
+.report__note { color: var(--faint); font-size: 8.5pt; margin: 4pt 0 0; }
+.report__days { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8pt; padding: 0; list-style: none; margin: 0; }
+.report__days li { border: 1px solid var(--line-strong); border-radius: 6pt; padding: 6pt 8pt; display: grid; }
+.report__days span { font-size: 9pt; color: var(--muted); }
+.report__days b { font-family: var(--mono); color: #b7791f; }
+.report__horizon .horizon-chart { break-inside: avoid; }
+.report__horizon .track--sun { stroke: #d48a1e; opacity: 1; }
+.report__horizon .track--earth { stroke: #3d7be0; opacity: 0.9; }
+.report__horizon .terrain { fill: var(--terrain); stroke: var(--terrain-edge); }
+.report__sources ul { margin: 0; padding-left: 14pt; color: var(--muted); font-size: 9pt; }
+.report__sources p { color: var(--faint); font-size: 8.5pt; }

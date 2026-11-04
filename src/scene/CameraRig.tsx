@@ -135,7 +135,11 @@ export function CameraRig({ lat, lon, sunDir, isGlobeView, flyNonce, terrain, re
       goal.current = clonePose(current.current);
     };
 
+    // Standing on the ground, GroundCamera owns the pointer: no orbiting, no picking.
+    const isGround = () => useNavigator.getState().isGroundView;
+
     const handleDown = (e: PointerEvent) => {
+      if (isGround()) return;
       takeOver();
       try {
         el.setPointerCapture(e.pointerId);
@@ -181,6 +185,7 @@ export function CameraRig({ lat, lon, sunDir, isGlobeView, flyNonce, terrain, re
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
+      if (isGround()) return;
       takeOver();
       goal.current = withRange(goal.current, goal.current.range * Math.exp(e.deltaY * WHEEL_ZOOM), minRangeAt(goal.current.target, polarCutY, outerCutY));
     };

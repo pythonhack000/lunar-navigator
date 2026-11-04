@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { SiteAnalysis } from '../hooks/useSiteAnalysis';
 import type { SiteScoreView } from '../hooks/useSiteScore';
 import { DSN_STATIONS } from '../lib/dsn';
@@ -8,6 +8,7 @@ import type { BodyView } from '../lib/visibility';
 import { MAX_COMPARE, siteKey, useNavigator } from '../state/store';
 import { HorizonChart } from './HorizonChart';
 import { LandingCalendar } from './LandingCalendar';
+import { MissionReport } from './MissionReport';
 
 interface SitePanelProps {
   analysis: SiteAnalysis;
@@ -24,7 +25,7 @@ function ScoreCard({ view }: { view: SiteScoreView }) {
     { key: 'score.sun', value: formatPercent(score.parts.sun), share: score.parts.sun },
     { key: 'score.link', value: formatPercent(score.parts.link), share: score.parts.link },
     { key: 'score.slope', value: formatDeg(slopeDeg), share: score.parts.slope },
-    { key: 'score.ice', value: iceKm === null ? t('score.noIce') : `${iceKm.toFixed(1)} km`, share: score.parts.ice },
+    { key: 'score.ice', value: iceKm === null ? t('score.noIce') : `${iceKm.toFixed(1)} ${t('unit.km')}`, share: score.parts.ice },
   ] as const;
   return (
     <div className="score" title={t('score.hint')} data-tour="score">
@@ -103,6 +104,8 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
   const toggleCompare = useNavigator((s) => s.toggleCompare);
   const [showDetails, setShowDetails] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [isPrinting, setPrinting] = useState(false);
+  const closeReport = useCallback(() => setPrinting(false), []);
   const { state, summary, profile, timeline } = analysis;
   const inCompare = compare.some((c) => siteKey(c) === siteKey(site));
   const compareFull = !inCompare && compare.length >= MAX_COMPARE;
@@ -116,6 +119,9 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
           <p className="muted">
             {formatLatLon(site.lat, site.lon)} · {Math.round(profile.siteHeightM).toLocaleString('en-US')} m
           </p>
+          <button type="button" className="link-button ground-enter" onClick={() => useNavigator.getState().enterGroundView()}>
+            {t('ground.enter')} →
+          </button>
         </div>
         <button type="button" className={inCompare ? 'ghost-button is-on' : 'ghost-button'} disabled={compareFull} onClick={() => toggleCompare(site)}>
           {inCompare ? t('panel.inCompare') : t('panel.compare')}
@@ -153,9 +159,14 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
           <button type="button" className="link-button" aria-expanded={showDetails} onClick={() => setShowDetails(!showDetails)}>
             {t('panel.details')} {showDetails ? '▾' : '▸'}
           </button>
-          <button type="button" className="ghost-button" onClick={() => setShowCalendar(true)}>
-            {t('panel.windows')}
-          </button>
+          <div className="month__buttons">
+            <button type="button" className="ghost-button" onClick={() => setPrinting(true)}>
+              {t('panel.report')}
+            </button>
+            <button type="button" className="ghost-button" onClick={() => setShowCalendar(true)}>
+              {t('panel.windows')}
+            </button>
+          </div>
         </div>
         {showDetails && (
           <dl className="month__grid">
@@ -165,6 +176,7 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
         )}
       </div>
       {showCalendar && <LandingCalendar analysis={analysis} onClose={() => setShowCalendar(false)} />}
+      {isPrinting && <MissionReport analysis={analysis} score={score} onDone={closeReport} />}
     </section>
   );
 }

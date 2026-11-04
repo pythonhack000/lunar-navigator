@@ -80,6 +80,15 @@ interface NavigatorState {
   /** The "How accurate is this?" comparison with published results. */
   isValidationOpen: boolean;
   setValidationOpen: (open: boolean) => void;
+  /** Standing on the site, looking around at the real horizon (relief 1× while there). */
+  isGroundView: boolean;
+  enterGroundView: () => void;
+  exitGroundView: () => void;
+  /** Relief to restore when leaving the ground view. */
+  reliefBeforeGround: ReliefScale;
+  /** Turn the ground view toward the Sun or the Earth; the nonce repeats a request. */
+  groundLook: { body: 'sun' | 'earth'; nonce: number } | null;
+  lookFromGround: (body: 'sun' | 'earth') => void;
   setTime: (time: number) => void;
   setGlobeView: (isGlobeView: boolean) => void;
   setPlaying: (playing: boolean) => void;
@@ -130,11 +139,17 @@ export const useNavigator = create<NavigatorState>((set) => ({
   setLanded: () => set({ landed: true }),
   isValidationOpen: false,
   setValidationOpen: (isValidationOpen) => set({ isValidationOpen }),
+  isGroundView: false,
+  reliefBeforeGround: 3,
+  enterGroundView: () => set((s) => (s.isGroundView ? s : { isGroundView: true, reliefBeforeGround: s.relief, relief: 1 })),
+  exitGroundView: () => set((s) => (s.isGroundView ? { isGroundView: false, relief: s.reliefBeforeGround, groundLook: null } : s)),
+  groundLook: null,
+  lookFromGround: (body) => set((s) => ({ groundLook: { body, nonce: (s.groundLook?.nonce ?? 0) + 1 } })),
   setTime: (time) => set({ time }),
   setGlobeView: (isGlobeView) => set({ isGlobeView }),
   setPlaying: (playing) => set({ playing }),
   setSpeed: (speed) => set({ speed }),
-  selectSite: (site) => set({ site, isGlobeView: false }),
+  selectSite: (site) => set((s) => ({ site, isGlobeView: false, isGroundView: false, relief: s.isGroundView ? s.reliefBeforeGround : s.relief })),
   toggleCompare: (site) =>
     set((state) => {
       const key = siteKey(site);

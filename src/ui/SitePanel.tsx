@@ -1,19 +1,37 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { flushSync } from 'react-dom';
 import type { SiteAnalysis } from '../hooks/useSiteAnalysis';
 import type { SiteScoreView } from '../hooks/useSiteScore';
-import { DSN_STATIONS } from '../lib/dsn';
+import { DSN_STATIONS, stationName } from '../lib/dsn';
 import { siteLabel, useT, type Translate } from '../i18n';
 import { formatDeg, formatDuration, formatHours, formatLatLon, formatPercent } from '../lib/format';
 import type { BodyView } from '../lib/visibility';
 import { MAX_COMPARE, siteKey, useNavigator } from '../state/store';
 import { HorizonChart } from './HorizonChart';
 import { LandingCalendar } from './LandingCalendar';
+import { MissionReport } from './MissionReport';
+import { ReportDialog } from './ReportDialog';
+import type { PeriodRange } from '../lib/periodReport';
 
 interface SitePanelProps {
   analysis: SiteAnalysis;
   score: SiteScoreView;
   time: number;
 }
+
+const CalendarIcon = () => (
+  <svg viewBox="0 0 16 16" aria-hidden="true" className="button-icon">
+    <rect x="2" y="3" width="12" height="11" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+);
+
+const DocumentIcon = () => (
+  <svg viewBox="0 0 16 16" aria-hidden="true" className="button-icon">
+    <path d="M4 1.5h5.5L13 5v9.5H4z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    <path d="M9.5 1.5V5H13M6.5 9h4M6.5 11.5h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+);
 
 /** One line per factor: what it is, the measured value, and how much of its full credit it earns. */
 function ScoreCard({ view }: { view: SiteScoreView }) {
@@ -24,7 +42,7 @@ function ScoreCard({ view }: { view: SiteScoreView }) {
     { key: 'score.sun', value: formatPercent(score.parts.sun), share: score.parts.sun },
     { key: 'score.link', value: formatPercent(score.parts.link), share: score.parts.link },
     { key: 'score.slope', value: formatDeg(slopeDeg), share: score.parts.slope },
-    { key: 'score.ice', value: iceKm === null ? t('score.noIce') : `${iceKm.toFixed(1)} km`, share: score.parts.ice },
+    { key: 'score.ice', value: iceKm === null ? t('score.noIce') : `${iceKm.toFixed(1)} ${t('unit.km')}`, share: score.parts.ice },
   ] as const;
   return (
     <div className="score" title={t('score.hint')} data-tour="score">
@@ -101,8 +119,18 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
   const site = useNavigator((s) => s.site);
   const compare = useNavigator((s) => s.compare);
   const toggleCompare = useNavigator((s) => s.toggleCompare);
-  const [showDetails, setShowDetails] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [report, setReport] = useState<'choosing' | PeriodRange | null>(null);
+  const closeReport = useCallback(() => setReport(null), []);
+  /**
+   * Lays the report out synchronously, then opens the print dialog in the same click: browsers
+   * may silently refuse a print() that is not a direct response to the user, which looked like
+   * "nothing happens".
+   */
+  const printReport = useCallback((range: PeriodRange) => {
+    flushSync(() => setReport(range));
+    window.print();
+  }, []);
   const { state, summary, profile, timeline } = analysis;
   const inCompare = compare.some((c) => siteKey(c) === siteKey(site));
   const compareFull = !inCompare && compare.length >= MAX_COMPARE;
@@ -117,9 +145,14 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
             {formatLatLon(site.lat, site.lon)} · {Math.round(profile.siteHeightM).toLocaleString('en-US')} m
           </p>
         </div>
-        <button type="button" className={inCompare ? 'ghost-button is-on' : 'ghost-button'} disabled={compareFull} onClick={() => toggleCompare(site)}>
-          {inCompare ? t('panel.inCompare') : t('panel.compare')}
-        </button>
+        <div className="site-panel__actions">
+          <button type="button" className="primary-button ground-enter" data-tour="ground" onClick={() => useNavigator.getState().enterGroundView()}>
+            {t('ground.enter')}
+          </button>
+          <button type="button" className={inCompare ? 'ghost-button is-on' : 'ghost-button'} disabled={compareFull} onClick={() => toggleCompare(site)}>
+            {inCompare ? t('panel.inCompare') : t('panel.compare')}
+          </button>
+        </div>
       </header>
 
       <div className="readouts" data-tour="readouts">
@@ -132,7 +165,7 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
           detail={
             state.earth.visibleFraction >= UP_SHARE
               ? analysis.linkNow >= 0
-                ? t('link.via', { s: DSN_STATIONS[analysis.linkNow].name, p: DSN_STATIONS[analysis.linkNow].place[lang] })
+                ? t('link.via', { s: stationName(DSN_STATIONS[analysis.linkNow], lang), p: DSN_STATIONS[analysis.linkNow].place[lang] })
                 : t('link.noStation')
               : t('kmAway', { km: Math.round(state.earth.distanceKm).toLocaleString('en-US') })
           }
@@ -149,22 +182,28 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
           <span><b>{formatPercent(summary.earthShare)}</b> {t('earthView')}</span>
           <span><b>{formatPercent(analysis.powerLinkShare)}</b> {t('powerLink')}</span>
         </div>
+        <p className="month__extremes">
+          {t('month.extremes', {
+            n: summary.longestDarkHours > 0 ? formatHours(summary.longestDarkHours, lang) : '—',
+            b: summary.longestCommsGapHours > 0 ? formatHours(summary.longestCommsGapHours, lang) : '—',
+          })}
+        </p>
         <div className="month__actions">
-          <button type="button" className="link-button" aria-expanded={showDetails} onClick={() => setShowDetails(!showDetails)}>
-            {t('panel.details')} {showDetails ? '▾' : '▸'}
-          </button>
-          <button type="button" className="ghost-button" onClick={() => setShowCalendar(true)}>
-            {t('panel.windows')}
-          </button>
+          <div className="month__buttons" data-tour="report">
+            <button type="button" className="ghost-button" onClick={() => setShowCalendar(true)}>
+              <CalendarIcon />
+              {t('panel.windows')}
+            </button>
+            <button type="button" className="ghost-button" onClick={() => setReport('choosing')}>
+              <DocumentIcon />
+              {t('panel.report')}
+            </button>
+          </div>
         </div>
-        {showDetails && (
-          <dl className="month__grid">
-            <div><dt>{t('night')}</dt><dd>{summary.longestDarkHours > 0 ? formatHours(summary.longestDarkHours, lang) : '—'}</dd></div>
-            <div><dt>{t('blackout')}</dt><dd>{summary.longestCommsGapHours > 0 ? formatHours(summary.longestCommsGapHours, lang) : '—'}</dd></div>
-          </dl>
-        )}
       </div>
       {showCalendar && <LandingCalendar analysis={analysis} onClose={() => setShowCalendar(false)} />}
+      {report === 'choosing' && <ReportDialog onCreate={printReport} onClose={closeReport} />}
+      {report !== null && report !== 'choosing' && <MissionReport analysis={analysis} score={score} range={report} onDone={closeReport} />}
     </section>
   );
 }

@@ -20,6 +20,7 @@ import { SitePicker } from './ui/SitePicker';
 import { TimeControls } from './ui/TimeControls';
 import { TimelineBar } from './ui/TimelineBar';
 import { ValidationPanel } from './ui/ValidationPanel';
+import { GroundHud } from './ui/GroundHud';
 
 type Props = { loaded: LoadedTerrain };
 
@@ -32,6 +33,7 @@ function Navigator({ loaded }: Props) {
   const analysis = useSiteAnalysis(loaded.terrain, site.lat, site.lon, time);
   const score = useSiteScore(loaded.terrain, loaded.manifest.polar.rhoMax, analysis);
   const isValidationOpen = useNavigator((s) => s.isValidationOpen);
+  const isGroundView = useNavigator((s) => s.isGroundView);
   const setValidationOpen = useNavigator((s) => s.setValidationOpen);
   const closeValidation = useCallback(() => setValidationOpen(false), [setValidationOpen]);
   const lang = useNavigator((s) => s.lang);
@@ -42,7 +44,7 @@ function Navigator({ loaded }: Props) {
   );
 
   return (
-    <div className="app">
+    <div className={isGroundView ? 'app is-ground' : 'app'}>
       <div className="stage">
         <SceneErrorBoundary>
           <MoonScene
@@ -56,6 +58,7 @@ function Navigator({ loaded }: Props) {
         </SceneErrorBoundary>
         <CameraStatus polarRhoMax={loaded.manifest.polar.rhoMax} />
         <LoadingBar />
+        <GroundHud />
       </div>
       <div className="hud">
         <header className="brand">

@@ -10,6 +10,8 @@ import { siteLabel } from '../i18n';
 import { siteKey, useNavigator, type SelectedSite } from '../state/store';
 import { CameraRig } from './CameraRig';
 import { Earth } from './Earth';
+import { GroundCamera } from './GroundCamera';
+import { SkyPaths } from './SkyPaths';
 import type { CameraFocus } from './globeCamera';
 import { createSky, updateSky, type SkyState } from './sky';
 import { Terrain as TerrainMesh, type MoonLighting } from './Terrain';
@@ -64,6 +66,7 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOute
   const lang = useNavigator((s) => s.lang);
   const relief = useNavigator((s) => s.relief);
   const introDone = useNavigator((s) => s.introDone);
+  const isGroundView = useNavigator((s) => s.isGroundView);
   const focus = useMemo<CameraFocus>(() => ({ target: new Vector3(0, -1, 0), range: 1 }), []);
   const lighting = useMemo<MoonLighting>(() => ({ ...BASE_LIGHTING, relief }), [relief]);
   const sky = useMemo(() => {
@@ -102,6 +105,8 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOute
         <SiteMarker key={siteKey(c)} lat={c.lat} lon={c.lon} label={siteLabel(c, lang)} isPrimary={false} />
       ))}
       <CameraRig lat={site.lat} lon={site.lon} sunDir={sky.sunDir} isGlobeView={isGlobeView} flyNonce={flyNonce} terrain={terrain} relief={relief} focus={focus} polarEdgeLat={polar.edgeLat} outerEdgeLat={polarOuter?.edgeLat} onPick={onPick} hold={!introDone} />
+      <GroundCamera lat={site.lat} lon={site.lon} terrain={terrain} sky={sky} focus={focus} />
+      {isGroundView && <SkyPaths lat={site.lat} lon={site.lon} terrain={terrain} sky={sky} />}
       <EffectComposer>
         <Bloom intensity={0.9} luminanceThreshold={0.95} luminanceSmoothing={0.2} mipmapBlur />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />

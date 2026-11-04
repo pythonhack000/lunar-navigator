@@ -1,3 +1,4 @@
+import { SITES } from './data/sites';
 import { useNavigator, type SiteKind } from './state/store';
 
 export type Lang = 'en' | 'ru';
@@ -11,6 +12,16 @@ const EN = {
   'loadingDetail': 'Sharpening the relief',
   'intro.leaving': 'Leaving Earth',
   'score.title': 'Site score',
+  'unit.km': 'km',
+  'panel.report': 'PDF report',
+  'report.title': 'PDF report',
+  'report.hint': 'Which period should the report cover?',
+  'report.create': 'Create PDF',
+  'report.how': 'The print window opens: choose “Save as PDF” as the printer.',
+  'ground.enter': 'Stand at the site',
+  'ground.title': 'At the landing site',
+  'ground.hint': 'Drag to look around · press play to watch the shadows turn',
+  'ground.exit': 'Back to orbit',
   'val.open': 'Check against NASA papers',
   'val.title': 'How accurate is this?',
   'val.subtitle': 'Like the papers, we take the best spot of each area (the sunniest within 3 km of the pin) and compute 19 years of our own geometry there, a full lunar precession cycle',
@@ -84,7 +95,8 @@ const EN = {
   'upAll': 'Up for the whole month ahead',
   'hiddenAll': 'Stays hidden this month',
   'disc': '{p} of the disc above the ridge line',
-  'panelOut': 'Solar panel output {p} of peak',
+  'panelOut': 'Solar panels: {p} of peak',
+  'month.extremes': 'Night up to {n} · without Earth up to {b}',
   'kmAway': '{km} km away',
   'month': 'Next lunar month',
   'sunlight': 'Sunlight',
@@ -151,6 +163,16 @@ const RU: Record<StringKey, string> = {
   'loadingDetail': 'Подгружаю чёткий рельеф',
   'intro.leaving': 'Покидаем Землю',
   'score.title': 'Оценка места',
+  'unit.km': 'км',
+  'panel.report': 'Отчёт PDF',
+  'report.title': 'Отчёт PDF',
+  'report.hint': 'За какой период сделать отчёт?',
+  'report.create': 'Создать PDF',
+  'report.how': 'Откроется окно печати: в поле «Принтер» выберите «Сохранить как PDF».',
+  'ground.enter': 'Встать на место',
+  'ground.title': 'На месте посадки',
+  'ground.hint': 'Тяни, чтобы осмотреться · нажми «пуск» — тени поплывут',
+  'ground.exit': 'Назад на орбиту',
   'val.open': 'Сверить со статьями NASA',
   'val.title': 'Насколько это точно?',
   'val.subtitle': 'Как и в статьях, берём лучшую точку района (самую солнечную в 3 км от метки) и считаем для неё 19 лет по нашему рельефу LOLA, полный цикл прецессии Луны',
@@ -224,7 +246,8 @@ const RU: Record<StringKey, string> = {
   'upAll': 'Над горизонтом весь месяц',
   'hiddenAll': 'Скрыто весь месяц',
   'disc': '{p} диска над хребтом',
-  'panelOut': 'Мощность панели {p} от максимума',
+  'panelOut': 'Панели: {p} от пика',
+  'month.extremes': 'Ночь до {n} · без Земли до {b}',
   'kmAway': '{km} км от Луны',
   'month': 'Ближайший лунный месяц',
   'sunlight': 'Свет',
@@ -296,9 +319,10 @@ export function useT(): Translate {
 }
 
 /** Display name of a site in the current language (unnamed places are labelled by kind). */
-export function siteLabel(site: { name: string; kind?: SiteKind }, lang: Lang): string {
+export function siteLabel(site: { id?: string | null; name: string; kind?: SiteKind }, lang: Lang): string {
   if (site.kind === 'custom') return translate(lang, 'site.custom');
   if (site.kind === 'brightest') return translate(lang, 'site.brightest');
   if (site.kind === 'nearIce') return translate(lang, 'site.nearIce');
-  return site.name;
+  const named = site.id ? SITES.find((s) => s.id === site.id) : undefined;
+  return named && lang === 'ru' ? named.nameRu : site.name;
 }

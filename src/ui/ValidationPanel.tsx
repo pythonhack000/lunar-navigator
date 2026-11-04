@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SITES } from '../data/sites';
-import { useT } from '../i18n';
+import { siteLabel, useT } from '../i18n';
 import { formatLatLon, formatPercent } from '../lib/format';
 import type { Terrain } from '../lib/terrain';
 import { combineYears, CYCLE_YEARS, illuminationOverYear, ourValue, quickYear, REFERENCES, searchPoints, yearStart, type Reference, type YearResult } from '../lib/validation';
@@ -103,7 +103,7 @@ export function ValidationPanel({ terrain, onClose }: Props) {
               return (
                 <tr key={`${ref.siteId}-${ref.source}-${ref.metric}`}>
                   <th scope="row">
-                    {siteFor(ref.siteId).name}
+                    {siteLabel(siteFor(ref.siteId), lang)}
                     <small className="muted">{t(ref.metric === 'sunlit' ? 'val.sunlit' : 'val.night')}</small>
                     {result && <small className="muted mono">{formatLatLon(result.lat, result.lon)}</small>}
                   </th>

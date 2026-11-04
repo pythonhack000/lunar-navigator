@@ -1,7 +1,9 @@
 import { memo, useRef, type PointerEvent } from 'react';
 import { useT } from '../i18n';
+import { useNavigator } from '../state/store';
 import { DAY_MS, formatShortDate } from '../lib/format';
-import { DSN_STATIONS } from '../lib/dsn';
+import { DSN_STATIONS, stationName } from '../lib/dsn';
+import type { Lang } from '../i18n';
 import type { Timeline } from '../lib/visibility';
 
 interface TimelineBarProps {
@@ -52,7 +54,7 @@ function Row({ values, y, className }: { values: Float32Array; y: number; classN
 const MemoRow = memo(Row);
 
 /** One bar per run of the same DSN station, labelled with its initial where it fits. */
-function LinkRow({ link, y }: { link: Int8Array; y: number }) {
+function LinkRow({ link, y, lang }: { link: Int8Array; y: number; lang: Lang }) {
   const n = link.length;
   const bars = [];
   let start = 0;
@@ -62,13 +64,13 @@ function LinkRow({ link, y }: { link: Int8Array; y: number }) {
     if (station >= 0) {
       const x = (start / n) * W;
       const width = ((i - start) / n) * W;
-      const name = DSN_STATIONS[station].name;
+      const name = stationName(DSN_STATIONS[station], lang);
       bars.push(
         <g key={start} className={`dsn dsn--${DSN_STATIONS[station].id}`}>
           <rect x={x} y={y} width={width} height={ROW_H} rx={3}>
-            <title>{`NASA DSN · ${name}, ${DSN_STATIONS[station].place.en}`}</title>
+            <title>{`NASA DSN · ${name}, ${DSN_STATIONS[station].place[lang]}`}</title>
           </rect>
-          {width >= MIN_LABEL_W && <text x={x + width / 2} y={y + ROW_H / 2 + 3.5} textAnchor="middle">{name[0]}</text>}
+          {width >= MIN_LABEL_W && <text x={x + width / 2} y={y + ROW_H / 2 + 3.5} textAnchor="middle">{DSN_STATIONS[station].name[0]}</text>}
         </g>,
       );
     }
@@ -106,6 +108,7 @@ const MemoTicks = memo(DayTicks);
 
 export function TimelineBar({ timeline, link, time, onSeek }: TimelineBarProps) {
   const t = useT();
+  const lang = useNavigator((s) => s.lang);
   const svgRef = useRef<SVGSVGElement>(null);
   const span = (timeline.sun.length - 1) * timeline.stepMs;
   const cursorX = ((time - timeline.start) / span) * W;
@@ -154,7 +157,7 @@ export function TimelineBar({ timeline, link, time, onSeek }: TimelineBarProps) 
       >
         <MemoRow values={timeline.sun} y={0} className="row row--sun" />
         <MemoRow values={timeline.earth} y={ROW_H + GAP} className="row row--earth" />
-        <MemoLinkRow link={link} y={2 * (ROW_H + GAP)} />
+        <MemoLinkRow link={link} y={2 * (ROW_H + GAP)} lang={lang} />
         <MemoTicks timeline={timeline} />
         <line x1={cursorX} x2={cursorX} y1={-2} y2={ROWS_H + 2} className="cursor" />
       </svg>

@@ -12,7 +12,7 @@ interface HorizonChartProps {
 }
 
 const W = 720;
-const H = 230;
+const H = 190;
 const PAD = { left: 34, right: 8, top: 12, bottom: 22 };
 const PLOT_W = W - PAD.left - PAD.right;
 const PLOT_H = H - PAD.top - PAD.bottom;

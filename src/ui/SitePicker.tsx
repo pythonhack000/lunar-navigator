@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { SITES, type SiteGroup } from '../data/sites';
-import { useT } from '../i18n';
+import { siteLabel, useT } from '../i18n';
 import { siteKey, useNavigator } from '../state/store';
 
 const GROUPS: SiteGroup[] = ['Artemis III', 'South pole', 'Robotic landers', 'Apollo'];
@@ -55,7 +55,7 @@ export function SitePicker() {
   const currentGroup = SITES.find((s) => s.id === site.id)?.group ?? 'Artemis III';
   const [openGroups, setOpenGroups] = useState<ReadonlySet<SiteGroup>>(() => new Set([currentGroup]));
   const q = query.trim().toLowerCase();
-  const matches = SITES.filter((s) => !q || `${s.name} ${s.note} ${s.noteRu}`.toLowerCase().includes(q));
+  const matches = SITES.filter((s) => !q || `${s.name} ${s.nameRu} ${s.note} ${s.noteRu}`.toLowerCase().includes(q));
   const currentKey = siteKey(site);
 
   const toggle = (g: SiteGroup) =>
@@ -89,7 +89,7 @@ export function SitePicker() {
                     className={siteKey(s) === currentKey ? 'site-item is-active' : 'site-item'}
                     onClick={() => selectSite({ id: s.id, name: s.name, lat: s.lat, lon: s.lon })}
                   >
-                    <span className="site-item__name">{s.name}</span>
+                    <span className="site-item__name">{siteLabel(s, lang)}</span>
                     <span className="site-item__note">{lang === 'ru' ? s.noteRu : s.note}</span>
                   </button>
                 ))}

@@ -14,12 +14,13 @@ export interface DsnStation {
   lon: number;
   heightM: number;
   place: { en: string; ru: string };
+  nameRu: string;
 }
 
 export const DSN_STATIONS: readonly DsnStation[] = [
-  { id: 'goldstone', name: 'Goldstone', lat: 35.4267, lon: -116.89, heightM: 1002, place: { en: 'USA', ru: 'США' } },
-  { id: 'madrid', name: 'Madrid', lat: 40.4314, lon: -4.2481, heightM: 865, place: { en: 'Spain', ru: 'Испания' } },
-  { id: 'canberra', name: 'Canberra', lat: -35.4014, lon: 148.9817, heightM: 689, place: { en: 'Australia', ru: 'Австралия' } },
+  { id: 'goldstone', name: 'Goldstone', lat: 35.4267, lon: -116.89, heightM: 1002, place: { en: 'USA', ru: 'США' }, nameRu: 'Голдстоун' },
+  { id: 'madrid', name: 'Madrid', lat: 40.4314, lon: -4.2481, heightM: 865, place: { en: 'Spain', ru: 'Испания' }, nameRu: 'Мадрид' },
+  { id: 'canberra', name: 'Canberra', lat: -35.4014, lon: 148.9817, heightM: 689, place: { en: 'Australia', ru: 'Австралия' }, nameRu: 'Канберра' },
 ];
 
 /** Antennas do not track below this elevation (terrain masks, atmosphere). */
@@ -93,3 +94,6 @@ export function linkShare(link: Int8Array, sun?: Float32Array): number {
   for (let k = 0; k < link.length; k++) if (link[k] >= 0 && (!sun || sun[k] >= EARTH_UP)) count++;
   return count / link.length;
 }
+
+/** A station's name in the interface language. */
+export const stationName = (s: DsnStation, lang: 'en' | 'ru'): string => (lang === 'ru' ? s.nameRu : s.name);

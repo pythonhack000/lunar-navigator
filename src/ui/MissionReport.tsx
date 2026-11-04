@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import type { SiteAnalysis } from '../hooks/useSiteAnalysis';
 import type { SiteScoreView } from '../hooks/useSiteScore';
 import { siteLabel } from '../i18n';
-import { DSN_STATIONS } from '../lib/dsn';
+import { DSN_STATIONS, stationName } from '../lib/dsn';
 import { formatDeg, formatHours, formatLatLon, formatPercent } from '../lib/format';
 import { analyzePeriod, type PeriodRange } from '../lib/periodReport';
 import { bestLandingDays, stationShares } from '../lib/report';
@@ -35,14 +35,11 @@ export function MissionReport({ analysis, score: view, range, onDone }: Props) {
   const days = bestLandingDays(timeline, period.link, BEST_DAYS);
   const shares = stationShares(period.link, DSN_STATIONS.length);
 
+  // The print dialog itself is opened by the click that asked for the report (see SitePanel);
+  // the report only clears itself away once the dialog closes.
   useEffect(() => {
     window.addEventListener('afterprint', onDone);
-    // One frame so the report is laid out before the dialog snapshots the page.
-    const id = requestAnimationFrame(() => window.print());
-    return () => {
-      cancelAnimationFrame(id);
-      window.removeEventListener('afterprint', onDone);
-    };
+    return () => window.removeEventListener('afterprint', onDone);
   }, [onDone]);
 
   const rows: [string, string][] = [
@@ -104,7 +101,7 @@ export function MissionReport({ analysis, score: view, range, onDone }: Props) {
           <table>
             <tbody>
               {DSN_STATIONS.map((s, i) => (
-                <tr key={s.id}><th scope="row">{s.name}, {s.place[lang]}</th><td>{formatPercent(shares[i])}</td></tr>
+                <tr key={s.id}><th scope="row">{stationName(s, lang)}, {s.place[lang]}</th><td>{formatPercent(shares[i])}</td></tr>
               ))}
             </tbody>
           </table>

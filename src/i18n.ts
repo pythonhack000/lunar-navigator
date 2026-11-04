@@ -1,3 +1,4 @@
+import { SITES } from './data/sites';
 import { useNavigator, type SiteKind } from './state/store';
 
 export type Lang = 'en' | 'ru';
@@ -16,6 +17,7 @@ const EN = {
   'report.title': 'PDF report',
   'report.hint': 'Which period should the report cover?',
   'report.create': 'Create PDF',
+  'report.how': 'The print window opens: choose “Save as PDF” as the printer.',
   'ground.enter': 'Stand at the site',
   'ground.title': 'At the landing site',
   'ground.hint': 'Drag to look around · press play to watch the shadows turn',
@@ -166,6 +168,7 @@ const RU: Record<StringKey, string> = {
   'report.title': 'Отчёт PDF',
   'report.hint': 'За какой период сделать отчёт?',
   'report.create': 'Создать PDF',
+  'report.how': 'Откроется окно печати: в поле «Принтер» выберите «Сохранить как PDF».',
   'ground.enter': 'Встать на место',
   'ground.title': 'На месте посадки',
   'ground.hint': 'Тяни, чтобы осмотреться · нажми «пуск» — тени поплывут',
@@ -316,9 +319,10 @@ export function useT(): Translate {
 }
 
 /** Display name of a site in the current language (unnamed places are labelled by kind). */
-export function siteLabel(site: { name: string; kind?: SiteKind }, lang: Lang): string {
+export function siteLabel(site: { id?: string | null; name: string; kind?: SiteKind }, lang: Lang): string {
   if (site.kind === 'custom') return translate(lang, 'site.custom');
   if (site.kind === 'brightest') return translate(lang, 'site.brightest');
   if (site.kind === 'nearIce') return translate(lang, 'site.nearIce');
-  return site.name;
+  const named = site.id ? SITES.find((s) => s.id === site.id) : undefined;
+  return named && lang === 'ru' ? named.nameRu : site.name;
 }

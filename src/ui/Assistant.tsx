@@ -330,7 +330,7 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
                         <ol className="luna-picks">
                           {m.picks.map((p) => (
                             <li key={p.site.name}>
-                              <span>{p.site.name}</span>
+                              <span>{siteLabel(p.site, lang)}</span>
                               <span className="mono">{formatPercent(p.score)}</span>
                               <button type="button" className="link-button" onClick={() => selectSite(p.site)}>{text.fly}</button>
                             </li>

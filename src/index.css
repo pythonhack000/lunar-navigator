@@ -351,7 +351,7 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 .month__summary { display: flex; gap: 4px 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
 .month__summary b { color: var(--text); font-family: var(--mono); font-size: 15px; }
 .month__extremes { margin: 4px 0 0; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.month__actions { display: flex; align-items: center; justify-content: flex-end; margin-top: 8px; }
+.month__actions { display: flex; align-items: center; margin-top: 10px; }
 .month__grid { margin-top: 10px; grid-template-columns: repeat(2, 1fr); }
 .ghost-button.is-on { border-color: var(--sun); color: var(--sun); }
 .readout__grid { margin: 8px 0 0; opacity: 0.85; }
@@ -508,7 +508,9 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 .ground-enter { font-weight: 600; }
 
 /* Mission report: hidden on screen, the only thing on paper. Light theme, one accent. */
-.month__buttons { display: flex; gap: 8px; }
+.month__buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+.month__buttons button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 10px; white-space: nowrap; }
+.button-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.85; }
 .print-report { display: none; }
 @media print {
   @page { size: A4; margin: 14mm; }
@@ -568,3 +570,4 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 .report-dialog p { margin: 0; }
 .report-dialog__periods button { flex: 1; }
 .report-dialog__go { align-self: flex-end; padding: 8px 16px; }
+.report-dialog__how { font-size: 12px; }

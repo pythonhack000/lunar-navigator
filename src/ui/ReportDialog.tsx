@@ -45,6 +45,7 @@ export function ReportDialog({ onCreate, onClose }: Props) {
             <label>{t('compare.to')} <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
           </div>
         )}
+        <p className="muted report-dialog__how">{t('report.how')}</p>
         <button type="button" className="primary-button report-dialog__go" onClick={() => onCreate(periodRange(period, now, from, to))}>
           {t('report.create')}
         </button>

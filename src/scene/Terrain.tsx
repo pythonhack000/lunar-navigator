@@ -4,13 +4,13 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { BackSide, DataTexture, FrontSide, PlaneGeometry, ShaderMaterial, TextureLoader, Vector2, Vector4, type IUniform, type Texture, type Vector3 } from 'three';
 import { MOON_RADIUS_KM } from '../lib/ephemeris';
 import type { PolarTile, TileGridSpec } from '../lib/loadTerrain';
-import { useNavigator } from '../state/store';
+import { useNavigator, whenNavigator } from '../state/store';
 import { loadAtlas, tileIndex, type DetailAtlas } from './detailAtlas';
 import { clipmapLevels, finestLevelFor, GRID_CELLS } from './clipmap';
 import { fromThree } from './coords';
 import type { CameraFocus } from './globeCamera';
 import { globeFragmentShader, globeVertexShader, polarFragmentShader, polarVertexShader } from './moonShader';
-import { prepareTerrainSet, textureUrl } from './moonTextures';
+import { GLOBAL_PREVIEW, prepareTerrainSet, previewUrls, textureUrl } from './moonTextures';
 
 export interface MoonLighting {
   sunIntensity: number;
@@ -52,10 +52,7 @@ EMPTY_TEXTURE.needsUpdate = true;
 
 type Uniforms = Record<string, IUniform>;
 
-/** Small versions load first so the Moon appears within seconds; the full set replaces them later. */
-const previewUrls = (name: string) => [`${name}_color_1k.jpg`, `${name}_normal_1k.jpg`, `${name}_height_1k.png`].map(textureUrl);
 const fullUrls = (name: string) => [`${name}_color_4k.jpg`, `${name}_normal_6k.jpg`, `${name}_height_4k.png`].map(textureUrl);
-const GLOBAL_PREVIEW = ['moon_color_2k.jpg', 'moon_normal_2k.jpg', 'moon_height_1k.png'].map(textureUrl);
 const GLOBAL_FULL = ['moon_color_8k.jpg', 'moon_normal_8k.jpg', 'moon_height_4k.png'].map(textureUrl);
 
 type TerrainSet = 'global' | 'inner' | 'outer';
@@ -228,7 +225,11 @@ export function Terrain({ sunDir, earthDir, heightRange, polar, polarOuter, tile
       ['global', GLOBAL_FULL],
     ];
     (async () => {
+      // Decoding 4k-8k images stalls the browser for a moment; doing it during the opening descent
+      // made the camera jerk, so the sharp set starts once it has landed.
+      await whenNavigator((s) => s.landed);
       for (const [which, urls] of queue) {
+        if (cancelled) return;
         const set = await loadSet(urls);
         if (cancelled) {
           set.forEach((t) => t.dispose());

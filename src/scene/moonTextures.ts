@@ -4,6 +4,14 @@ const MAX_ANISOTROPY = 8;
 
 export const textureUrl = (name: string): string => `${import.meta.env.BASE_URL}textures/${name}`;
 
+/** Small versions load first so the Moon appears within seconds; the full set replaces them later. */
+export const previewUrls = (name: string): string[] =>
+  [`${name}_color_1k.jpg`, `${name}_normal_1k.jpg`, `${name}_height_1k.png`].map(textureUrl);
+export const GLOBAL_PREVIEW = ['moon_color_2k.jpg', 'moon_normal_2k.jpg', 'moon_height_1k.png'].map(textureUrl);
+
+/** Every file the Moon needs before it can first appear, given the polar tile names. */
+export const firstTextures = (polarNames: string[]): string[] => [...GLOBAL_PREVIEW, ...polarNames.flatMap(previewUrls)];
+
 export function prepareColor(t: Texture): void {
   t.colorSpace = SRGBColorSpace;
   t.anisotropy = MAX_ANISOTROPY;

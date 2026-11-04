@@ -3,8 +3,10 @@ import { useSiteAnalysis, windowStartFor } from './hooks/useSiteAnalysis';
 import { translate } from './i18n';
 import { useThrottledTime } from './hooks/useThrottledTime';
 import { loadTerrain, type LoadedTerrain } from './lib/loadTerrain';
+import { prefetchAll } from './lib/prefetch';
+import { firstTextures } from './scene/moonTextures';
 import { MoonScene } from './scene/MoonScene';
-import { useNavigator } from './state/store';
+import { useNavigator, whenNavigator } from './state/store';
 import { Assistant } from './ui/Assistant';
 import { useLangScramble } from './ui/useLangScramble';
 import { CameraStatus } from './ui/CameraStatus';
@@ -67,17 +69,6 @@ function Navigator({ loaded }: Props) {
   );
 }
 
-function whenSceneReady(): Promise<void> {
-  return new Promise((resolve) => {
-    if (useNavigator.getState().sceneReady) return resolve();
-    const stop = useNavigator.subscribe((s) => {
-      if (!s.sceneReady) return;
-      stop();
-      resolve();
-    });
-  });
-}
-
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unexpected error';
 }
@@ -85,17 +76,23 @@ function errorMessage(error: unknown): string {
 export default function App() {
   const [loaded, setLoaded] = useState<LoadedTerrain | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [downloadShare, setDownloadShare] = useState(0);
   const lang = useNavigator((s) => s.lang);
+  const introArrived = useNavigator((s) => s.introArrived);
 
   useEffect(() => {
     let cancelled = false;
     loadTerrain()
       .then(({ refine, ...base }) => {
         if (cancelled) return;
-        setLoaded(base);
-        // The detailed grids wait until the Moon is on screen, so they never delay it; horizons
-        // then sharpen from the 4 px/° global grid to LOLA's polar maps.
-        whenSceneReady()
+        const polarNames = [base.manifest.polar.name, ...(base.manifest.polarOuter ? [base.manifest.polarOuter.name] : [])];
+        // The Moon's first textures download during the opening flight, so the 3D scene later
+        // starts from cache. It mounts only after both, never mid-flight, where its shader
+        // compilation would make the flight stutter.
+        prefetchAll(firstTextures(polarNames), (share) => !cancelled && setDownloadShare(share)).then(() => !cancelled && setLoaded(base));
+        // The detailed grids wait until the camera has landed, so parsing them neither delays the
+        // Moon nor jerks the descent; horizons then sharpen from the 4 px/° grid to LOLA's polar maps.
+        whenNavigator((s) => s.landed)
           .then(refine)
           .then((terrain) => !cancelled && setLoaded({ ...base, terrain }))
           .catch((e: unknown) => console.warn('Detailed terrain failed to load', e));
@@ -117,8 +114,8 @@ export default function App() {
   }
   return (
     <>
-      {loaded && <Navigator loaded={loaded} />}
-      <StartScreen terrainReady={loaded !== null} />
+      {loaded && introArrived && <Navigator loaded={loaded} />}
+      <StartScreen downloadShare={downloadShare} />
     </>
   );
 }

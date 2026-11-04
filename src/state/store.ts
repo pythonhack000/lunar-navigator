@@ -60,6 +60,15 @@ interface NavigatorState {
   /** True once the first (preview) textures are on screen and the Moon is visible. */
   sceneReady: boolean;
   setSceneReady: () => void;
+  /** True once the opening flight has reached the Moon; the heavy 3D scene starts then. */
+  introArrived: boolean;
+  arriveIntro: () => void;
+  /** True once the opening flight from Earth has handed over to the main camera. */
+  introDone: boolean;
+  finishIntro: () => void;
+  /** True once the opening descent to the first site is over (or the user took the controls). */
+  landed: boolean;
+  setLanded: () => void;
   setTime: (time: number) => void;
   setGlobeView: (isGlobeView: boolean) => void;
   setPlaying: (playing: boolean) => void;
@@ -102,6 +111,12 @@ export const useNavigator = create<NavigatorState>((set) => ({
   setLayer: (layer) => set({ layer }),
   sceneReady: false,
   setSceneReady: () => set({ sceneReady: true }),
+  introArrived: false,
+  arriveIntro: () => set({ introArrived: true }),
+  introDone: false,
+  finishIntro: () => set({ introDone: true }),
+  landed: false,
+  setLanded: () => set({ landed: true }),
   setTime: (time) => set({ time }),
   setGlobeView: (isGlobeView) => set({ isGlobeView }),
   setPlaying: (playing) => set({ playing }),
@@ -116,3 +131,15 @@ export const useNavigator = create<NavigatorState>((set) => ({
       return { compare: [...state.compare, site] };
     }),
 }));
+
+/** Resolves as soon as the store satisfies `isReady` (at once if it already does). */
+export function whenNavigator(isReady: (s: NavigatorState) => boolean): Promise<void> {
+  return new Promise((resolve) => {
+    if (isReady(useNavigator.getState())) return resolve();
+    const stop = useNavigator.subscribe((s) => {
+      if (!isReady(s)) return;
+      stop();
+      resolve();
+    });
+  });
+}

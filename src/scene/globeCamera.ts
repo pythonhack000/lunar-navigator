@@ -1,4 +1,5 @@
 import { MathUtils, Quaternion, Vector3 } from 'three';
+import { latLonToThree } from './coords';
 
 /**
  * A Google-Earth-style camera: it looks at a point on the Moon from `range` away, tilted `tilt`
@@ -35,6 +36,17 @@ const TILT_FADE_END = 1.6;
 
 export const maxTiltFor = (range: number): number =>
   MAX_TILT_CLOSE * (1 - MathUtils.smoothstep(range, TILT_FADE_START, TILT_FADE_END));
+
+/** The whole-globe view the app opens on, before flying in to the first site. */
+export const GLOBE_RANGE = 2.4;
+/** Arrival over a site: ~300 km out, tilted toward the Sun so shadows fall toward the viewer. */
+const SITE_RANGE = 0.17;
+const SITE_TILT = MathUtils.degToRad(62);
+
+export function sitePose(lat: number, lon: number, sunDir: Vector3): CameraPose {
+  const target = latLonToThree(lat, lon).normalize();
+  return { target, forward: tangentAt(target, sunDir), range: SITE_RANGE, tilt: SITE_TILT };
+}
 
 export function clonePose(p: CameraPose): CameraPose {
   return { target: p.target.clone(), forward: p.forward.clone(), range: p.range, tilt: p.tilt };

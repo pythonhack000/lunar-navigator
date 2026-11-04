@@ -46,7 +46,10 @@ const haloFragment = /* glsl */ `
   varying vec3 vWorldPos;
   void main() {
     vec3 viewDir = normalize(cameraPosition - vWorldPos);
-    float edge = pow(1.0 - abs(dot(normalize(vNormal), viewDir)), 2.5);
+    // Brightest where the line of sight grazes the planet, fading to nothing at the shell's own
+    // rim, so close up the atmosphere reads as a glow rather than a second hard edge.
+    float facing = abs(dot(normalize(vNormal), viewDir));
+    float edge = smoothstep(0.0, 0.28, facing) * (1.0 - smoothstep(0.28, 0.9, facing));
     float lit = smoothstep(-0.3, 0.4, dot(normalize(vNormal), sunDir));
     gl_FragColor = vec4(vec3(0.3, 0.55, 1.0) * edge * lit * 1.4, edge * lit);
   }

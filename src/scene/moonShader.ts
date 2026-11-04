@@ -108,7 +108,7 @@ const craterField = /* glsl */ `
 `;
 
 /** Fragment-only helper (it needs screen-space derivatives). */
-const equirectSampling = /* glsl */ `
+export const equirectSampling = /* glsl */ `
   /** Samples an equirectangular map without the mip seam where longitude wraps. */
   vec4 sampleEquirect(sampler2D tex, vec2 uv) {
     vec2 alt = vec2(fract(uv.x + 0.5) - 0.5, uv.y);

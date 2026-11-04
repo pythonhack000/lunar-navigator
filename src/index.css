@@ -398,24 +398,28 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 .loading-bar__track span { display: block; height: 100%; background: var(--sun); transition: width 0.3s ease; }
 
 /* Start screen: covers everything until the Moon is on screen, then fades away */
-.start-screen {
-  position: fixed; inset: 0; z-index: 50; display: grid; place-content: center; justify-items: center;
-  gap: 12px; padding: 16px; text-align: center; background: var(--bg); transition: opacity 0.6s ease;
+.intro { position: fixed; inset: 0; z-index: 50; background: #000; transition: opacity 0.9s ease; }
+.intro.is-done { opacity: 0; } /* still catches clicks while fading, so none lands on the Moon */
+.intro canvas { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s ease; }
+.intro.is-live canvas { opacity: 1; }
+.intro__titles {
+  position: absolute; left: clamp(16px, 5vw, 64px); bottom: clamp(88px, 14vh, 140px);
+  display: grid; gap: 6px; max-width: min(560px, calc(100vw - 32px)); pointer-events: none;
+  animation: intro-in 1.6s ease both;
 }
-.start-screen.is-done { opacity: 0; } /* still catches clicks while fading, so none lands on the Moon */
-.start-screen h1 { font-size: 20px; margin: 8px 0 0; }
-.start-screen p { color: var(--muted); margin: 0; }
-.start-screen small { color: var(--faint); font: 12px var(--mono); }
-.start-screen__moon {
-  width: 96px; height: 96px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #d9d6cf, #8d8a84 45%, #2a2926 75%);
-  box-shadow: 0 0 60px rgba(255, 255, 255, 0.08); animation: moon-turn 6s ease-in-out infinite;
+.intro__titles h1 { font-size: clamp(24px, 4vw, 40px); font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.intro__titles p { color: var(--muted); margin: 0; font-size: 15px; }
+.intro__distance { color: var(--sun); font: 13px var(--mono); min-height: 1.2em; }
+.intro__foot {
+  position: absolute; left: clamp(16px, 5vw, 64px); right: clamp(16px, 5vw, 64px); bottom: clamp(24px, 5vh, 48px);
+  display: flex; align-items: center; gap: 12px;
 }
-.start-screen__track { width: min(320px, 70vw); height: 3px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 6px; }
-.start-screen__track span { display: block; height: 100%; background: var(--sun); transition: width 0.4s ease; }
-.start-screen__track.is-waiting span { width: 30%; animation: track-sweep 1.4s ease-in-out infinite; }
-@keyframes track-sweep { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
-@keyframes moon-turn { 50% { box-shadow: 0 0 80px rgba(255, 181, 71, 0.12); } }
+.intro__track { flex: 0 1 240px; height: 2px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.intro__track span { display: block; height: 100%; background: var(--sun); transition: width 0.4s ease; }
+.intro__foot small { color: var(--faint); font: 12px var(--mono); }
+.intro__skip { margin-left: auto; }
+@keyframes intro-in { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) {
-  .start-screen__moon, .start-screen__track.is-waiting span { animation: none; }
+  .intro__titles { animation: none; }
 }
+

@@ -38,7 +38,8 @@ const VOICE_KEY = 'luna-voice';
 const HIGHLIGHT_CLASS = 'tour-highlight';
 /** Ranking uses a coarser time step than the panels: plenty for comparing whole months. */
 const RANK_STEP_MS = 3 * HOUR_MS;
-const TYPE_MS_PER_CHAR = 14;
+/** Pace of LUNA's words appearing one after another. */
+const WORD_MS = 38;
 /** The greeting waits for LUNA's fly-in (index.css) to finish. */
 const GREET_DELAY_MS = 1100;
 
@@ -100,20 +101,28 @@ function SpeakerIcon({ isOn }: { isOn: boolean }) {
   );
 }
 
-/** Types its text out letter by letter, like a terminal; click to show it all at once. */
+/**
+ * LUNA's reply surfaces word by word, each fading in from a soft blur. The stagger is pure CSS
+ * (an animation delay per word), so there is no re-render per letter and no blinking cursor.
+ * Click to show everything at once.
+ */
 function Typewriter({ lines, isLive }: { lines: string[]; isLive: boolean }) {
-  const full = lines.join('\n');
-  const [count, setCount] = useState(isLive ? 0 : full.length);
-  useEffect(() => {
-    if (count >= full.length) return;
-    const id = window.setTimeout(() => setCount((c) => Math.min(full.length, c + 2)), TYPE_MS_PER_CHAR * 2);
-    return () => window.clearTimeout(id);
-  }, [count, full.length]);
-  const shown = full.slice(0, count).split('\n');
+  const [isRevealed, setRevealed] = useState(!isLive);
+  let index = 0;
   return (
-    <div onClick={() => setCount(full.length)} className={count < full.length ? 'is-typing' : undefined}>
-      {shown.map((line, i) => (
-        <p key={i}>{line}</p>
+    <div onClick={() => setRevealed(true)} className={isRevealed ? undefined : 'is-revealing'}>
+      {lines.map((line, i) => (
+        <p key={i}>
+          {line.split(/(\s+)/).map((part, j) => {
+            if (/^\s+$/.test(part) || part === '') return part;
+            const delay = index++ * WORD_MS;
+            return (
+              <span key={j} className="luna-word" style={{ animationDelay: `${delay}ms` }}>
+                {part}
+              </span>
+            );
+          })}
+        </p>
       ))}
     </div>
   );

@@ -32,11 +32,11 @@ function CustomSiteForm() {
   return (
     <form className="coord-form" onSubmit={handleSubmit} noValidate>
       <label>
-        <span>Lat</span>
+        <span>{t('picker.lat')}</span>
         <input inputMode="decimal" placeholder="-89.45" value={lat} onChange={(e) => setLat(e.target.value)} />
       </label>
       <label>
-        <span>Lon</span>
+        <span>{t('picker.lon')}</span>
         <input inputMode="decimal" placeholder="-137.0" value={lon} onChange={(e) => setLon(e.target.value)} />
       </label>
       <button type="submit" className="ghost-button">{t('picker.go')}</button>

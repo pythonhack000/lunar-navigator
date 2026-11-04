@@ -1,4 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { translate } from '../i18n';
+import { useNavigator } from '../state/store';
 
 type Props = { children: ReactNode };
 type State = { message: string | null };
@@ -21,12 +23,14 @@ export class SceneErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.message === null) return this.props.children;
+    // Class components cannot use hooks; the language at the moment of failure is enough here.
+    const lang = useNavigator.getState().lang;
     return (
       <div className="scene-error" role="alert">
-        <p>The 3D view could not start: {this.state.message}</p>
-        <p className="muted">Site data, charts and timelines below still work.</p>
+        <p>{translate(lang, 'sceneError.title', { e: this.state.message })}</p>
+        <p className="muted">{translate(lang, 'sceneError.hint')}</p>
         <button type="button" className="ghost-button" onClick={() => window.location.reload()}>
-          Reload
+          {translate(lang, 'sceneError.reload')}
         </button>
       </div>
     );

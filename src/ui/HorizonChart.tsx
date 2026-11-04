@@ -17,12 +17,12 @@ const PAD = { left: 34, right: 8, top: 12, bottom: 22 };
 const PLOT_W = W - PAD.left - PAD.right;
 const PLOT_H = H - PAD.top - PAD.bottom;
 const COMPASS = [
-  { az: 0, label: 'N' },
-  { az: 90, label: 'E' },
-  { az: 180, label: 'S' },
-  { az: 270, label: 'W' },
-  { az: 360, label: 'N' },
-];
+  { az: 0, label: 'compass.N' },
+  { az: 90, label: 'compass.E' },
+  { az: 180, label: 'compass.S' },
+  { az: 270, label: 'compass.W' },
+  { az: 360, label: 'compass.N' },
+] as const;
 const SUN_R = 6;
 const EARTH_R = 8;
 const MIN_SPAN_DEG = 6;
@@ -140,7 +140,7 @@ export function HorizonChart({ profile, timeline, state, lat }: HorizonChartProp
           <circle cx={scale.x(state.sun.azDeg)} cy={sunY} r={SUN_R} className="disc disc--sun" />
         </g>
         {COMPASS.map((c) => (
-          <text key={c.az} x={scale.x(c.az)} y={H - 6} textAnchor="middle" className="compass">{c.label}</text>
+          <text key={c.az} x={scale.x(c.az)} y={H - 6} textAnchor="middle" className="compass">{t(c.label)}</text>
         ))}
       </svg>
       <figcaption>

@@ -8,6 +8,14 @@
 /** Cells along each side of every level's grid. Must be a multiple of 8. */
 export const GRID_CELLS = 128;
 
+/**
+ * How far, in cells of the finer grid, a level's hole stops short of that grid's edge. The two
+ * then overlap by a thin band: where a fine vertex sits halfway along a coarse edge, rounding leaves
+ * pinholes between the triangles (a dotted line of black space), and the coarse level fills them.
+ * Both levels shade every pixel identically, so the overlap itself is invisible.
+ */
+export const HOLE_OVERLAP_CELLS = 1;
+
 export interface ClipLevel {
   /** Lower-left corner of the grid in the level's parameter space (radians or polar plane units). */
   originX: number;
@@ -32,9 +40,15 @@ export function clipmapLevels(focusX: number, focusY: number, cell0: number, cou
   for (let k = 0; k < count; k++) {
     const cell = cell0 * 2 ** k;
     const previous = levels[k - 1];
+    const inset = previous ? HOLE_OVERLAP_CELLS * previous.cell : 0;
     const hole: ClipLevel['hole'] =
       k > finest && previous
-        ? [previous.originX, previous.originY, previous.originX + GRID_CELLS * previous.cell, previous.originY + GRID_CELLS * previous.cell]
+        ? [
+            previous.originX + inset,
+            previous.originY + inset,
+            previous.originX + GRID_CELLS * previous.cell - inset,
+            previous.originY + GRID_CELLS * previous.cell - inset,
+          ]
         : null;
     levels.push({ originX: snapOrigin(focusX, cell), originY: snapOrigin(focusY, cell), cell, visible: k >= finest, hole });
   }

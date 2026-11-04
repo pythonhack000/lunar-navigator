@@ -70,7 +70,7 @@ export function TimeControls() {
         ))}
       </div>
       <label className="date-field">
-        <span className="visually-hidden">Date and time (UTC)</span>
+        <span className="visually-hidden">{t('time.field')}</span>
         <input type="datetime-local" value={toDateTimeInput(time)} onChange={(e) => handleDate(e.target.value)} />
         <span className="date-field__zone">UTC</span>
       </label>

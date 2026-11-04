@@ -16,6 +16,8 @@ interface Target {
   glyphs: string;
   /** Each character settles at its own moment, left to right with a little jitter. */
   settleAt: number[];
+  /** What this animation last wrote; anything else in the node means React has since rewritten it. */
+  shown: string;
 }
 
 function collectTargets(root: Element): Target[] {
@@ -28,9 +30,19 @@ function collectTargets(root: Element): Target[] {
     if (!text.trim() || text.length > MAX_LABEL || HAS_DIGIT.test(text)) continue;
     const glyphs = text.replace(/\s/g, '') || FALLBACK_GLYPHS;
     const settleAt = Array.from(text, (_, i) => Math.min(1, (i / text.length) * 0.8 + Math.random() * 0.2));
-    targets.push({ node: n as Text, text, glyphs, settleAt });
+    targets.push({ node: n as Text, text, glyphs, settleAt, shown: text });
   }
   return targets;
+}
+
+/**
+ * Writes into a node only while it still holds this animation's own text. Restoring blindly would
+ * put back the previous language over the labels React has just translated.
+ */
+function write(t: Target, value: string) {
+  if (!t.node.isConnected || t.node.nodeValue !== t.shown) return;
+  t.node.nodeValue = value;
+  t.shown = value;
 }
 
 function render({ text, glyphs, settleAt }: Target, p: number): string {
@@ -66,20 +78,19 @@ export function useLangScramble(rootSelector = '#root') {
     const tick = (now: number) => {
       const p = Math.min(1, (now - start) / DURATION_MS);
       if (p >= 1) {
-        for (const t of targets) if (t.node.isConnected) t.node.nodeValue = t.text;
+        for (const t of targets) write(t, t.text);
         return;
       }
       if (now - lastGlyphs >= GLYPH_TICK_MS) {
         lastGlyphs = now;
-        // Skip nodes React has since replaced or rewritten.
-        for (const t of targets) if (t.node.isConnected) t.node.nodeValue = render(t, p);
+        for (const t of targets) write(t, render(t, p));
       }
       frame = requestAnimationFrame(tick);
     };
     tick(start);
     return () => {
       cancelAnimationFrame(frame);
-      for (const t of targets) if (t.node.isConnected) t.node.nodeValue = t.text;
+      for (const t of targets) write(t, t.text);
     };
   }, [lang, rootSelector]);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { clipmapLevels, finestLevelFor, GRID_CELLS, snapOrigin } from '../clipmap';
+import { clipmapLevels, finestLevelFor, GRID_CELLS, HOLE_OVERLAP_CELLS, snapOrigin } from '../clipmap';
 
 const CELL0 = 1e-4;
 const COUNT = 8;
@@ -35,9 +35,19 @@ describe('clipmapLevels', () => {
         expect(fineMax).toBeLessThanOrEqual(coarse.originX + GRID_CELLS * coarse.cell + 1e-12);
         const onLattice = (fine.originX - coarse.originX) / coarse.cell;
         expect(Math.abs(onLattice - Math.round(onLattice))).toBeLessThan(1e-6);
-        expect(coarse.hole?.[0]).toBeCloseTo(fine.originX, 12);
+        expect(coarse.hole?.[0]).toBeCloseTo(fine.originX + HOLE_OVERLAP_CELLS * fine.cell, 12);
       }
     }
+  });
+
+  test('leaves the hole slightly smaller than the finer grid, so the two overlap and no crack shows', () => {
+    const levels = clipmapLevels(0.3, -0.4, CELL0, COUNT, 0);
+    const fine = levels[0];
+    const [x0, y0, x1, y1] = levels[1].hole ?? [0, 0, 0, 0];
+    expect(x0).toBeGreaterThan(fine.originX);
+    expect(y0).toBeGreaterThan(fine.originY);
+    expect(x1).toBeLessThan(fine.originX + GRID_CELLS * fine.cell);
+    expect(y1).toBeLessThan(fine.originY + GRID_CELLS * fine.cell);
   });
 
   test('hides levels finer than the chosen one and leaves the finest visible level without a hole', () => {

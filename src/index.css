@@ -325,13 +325,9 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 .luna-picks li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; }
 .luna-picks .link-button { color: var(--sun); font-size: 12px; }
 .mono { font-family: var(--mono); }
-/* Two rows that scroll sideways: the questions stay one glance away and the conversation keeps the height. */
-.luna-chips {
-  display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); gap: 6px; justify-content: start;
-  overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; flex-shrink: 0;
-  mask-image: linear-gradient(90deg, #000 88%, transparent);
-}
+.luna-chips { display: flex; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
 .luna-chips button { white-space: nowrap; }
+.luna-chips .luna-chips__more { border-style: dashed; color: var(--muted); }
 .luna-messages { min-height: 160px; }
 .luna-chips button {
   font-size: 12px; padding: 5px 10px; border-radius: 99px; cursor: pointer;

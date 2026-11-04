@@ -157,6 +157,7 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
   const [tourStep, setTourStep] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isThinking, setThinking] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   const [hasVoice, setVoice] = useState(() => readFlag(VOICE_KEY));
   const nextId = useRef(1);
   const listRef = useRef<HTMLDivElement>(null);
@@ -344,17 +345,25 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
                 ))}
                 {isThinking && <p className="muted luna-thinking">{text.thinking}</p>}
               </div>
+              {/* The four questions people ask most stay in view; the rest open on demand. */}
               <div className="luna-chips">
                 <button type="button" onClick={() => { say('user', [text.explain]); say('luna', explainSite(siteLabel(site, lang), analysis, lang, score)); }}>{text.explain}</button>
                 <button type="button" disabled={isThinking} onClick={() => void findBest()}>{text.best}</button>
                 <button type="button" onClick={() => useNavigator.getState().setValidationOpen(true)}>{text.accuracy}</button>
-                <button type="button" disabled={isThinking} onClick={() => void rank('both', text.artemis, true)}>{text.artemis}</button>
-                {(['power', 'comms', 'both'] as const).map((g) => (
-                  <button key={g} type="button" disabled={isThinking} onClick={() => void rank(g, text.goals[g], false)}>{text.goals[g]}</button>
-                ))}
-                <button type="button" onClick={() => { say('user', [text.howTo]); say('luna', [...text.howToLines]); }}>{text.howTo}</button>
-                <button type="button" onClick={() => { say('user', [text.about]); say('luna', [...text.aboutLines]); }}>{text.about}</button>
                 <button type="button" onClick={() => setTourStep(0)}>{text.tour}</button>
+                {showMore && (
+                  <>
+                    <button type="button" disabled={isThinking} onClick={() => void rank('both', text.artemis, true)}>{text.artemis}</button>
+                    {(['power', 'comms', 'both'] as const).map((g) => (
+                      <button key={g} type="button" disabled={isThinking} onClick={() => void rank(g, text.goals[g], false)}>{text.goals[g]}</button>
+                    ))}
+                    <button type="button" onClick={() => { say('user', [text.howTo]); say('luna', [...text.howToLines]); }}>{text.howTo}</button>
+                    <button type="button" onClick={() => { say('user', [text.about]); say('luna', [...text.aboutLines]); }}>{text.about}</button>
+                  </>
+                )}
+                <button type="button" className="luna-chips__more" aria-expanded={showMore} onClick={() => setShowMore(!showMore)}>
+                  {showMore ? text.less : text.more}
+                </button>
               </div>
             </>
           )}

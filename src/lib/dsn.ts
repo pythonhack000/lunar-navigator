@@ -13,12 +13,13 @@ export interface DsnStation {
   lat: number;
   lon: number;
   heightM: number;
+  place: { en: string; ru: string };
 }
 
 export const DSN_STATIONS: readonly DsnStation[] = [
-  { id: 'goldstone', name: 'Goldstone', lat: 35.4267, lon: -116.89, heightM: 1002 },
-  { id: 'madrid', name: 'Madrid', lat: 40.4314, lon: -4.2481, heightM: 865 },
-  { id: 'canberra', name: 'Canberra', lat: -35.4014, lon: 148.9817, heightM: 689 },
+  { id: 'goldstone', name: 'Goldstone', lat: 35.4267, lon: -116.89, heightM: 1002, place: { en: 'USA', ru: 'США' } },
+  { id: 'madrid', name: 'Madrid', lat: 40.4314, lon: -4.2481, heightM: 865, place: { en: 'Spain', ru: 'Испания' } },
+  { id: 'canberra', name: 'Canberra', lat: -35.4014, lon: 148.9817, heightM: 689, place: { en: 'Australia', ru: 'Австралия' } },
 ];
 
 /** Antennas do not track below this elevation (terrain masks, atmosphere). */

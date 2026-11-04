@@ -1,4 +1,6 @@
 import type { SiteAnalysis } from '../hooks/useSiteAnalysis';
+import type { SiteScoreView } from '../hooks/useSiteScore';
+import { DSN_STATIONS } from '../lib/dsn';
 import type { Lang } from '../i18n';
 import { formatDeg, formatDuration, formatHours, formatPercent } from '../lib/format';
 import type { RankedSite, RankGoal } from '../lib/ranking';
@@ -13,21 +15,23 @@ export interface TourStep {
 const TOUR_EN: TourStep[] = [
   { target: null, title: "Hi, I'm LUNA", body: 'I help pick where and when to land near the lunar south pole. A lander there needs sunlight on its solar panels and Earth above the horizon to radio home. Mountains and crater rims block both. Let me show you around.' },
   { target: 'sites', title: 'Pick a landing site', body: 'Start with the Artemis III regions, or choose a south pole target, a robotic lander or an Apollo site. You can also click anywhere on the Moon.' },
-  { target: 'camera', title: 'Fly in 3D', body: 'Drag to move, right-drag or Shift-drag to tilt toward the horizon, scroll to zoom. Switch the map to Sunlight or Ice to see where the Sun shines all year — and where it never does.' },
+  { target: 'camera', title: 'Fly in 3D', body: 'Drag to move, right-drag or Shift-drag to tilt toward the horizon, scroll to zoom. Switch the map to Sunlight or Ice to see where the Sun shines all year — and where it never does — or to Slopes: green ground is gentle enough to land on, red is too steep.' },
   { target: 'readouts', title: 'Sun and Earth right now', body: 'How high the Sun and Earth stand above the real terrain, and how long until they set behind it. At the pole the Sun skims the horizon, so a small ridge can cause night.' },
   { target: 'horizon', title: 'The real horizon', body: 'The 360° skyline around the site, traced from NASA LOLA laser altimetry, with the paths of the Sun and Earth over the coming days.' },
-  { target: 'timeline', title: 'A whole lunar month', body: 'Amber is sunlight, blue is Earth in view. Drag to scrub through time or press play to watch shadows sweep the craters.' },
-  { target: 'month', title: 'Decide', body: 'Month totals, landing windows by the hour, and Compare for side-by-side sites. Or just ask me for the best site.' },
+  { target: 'score', title: 'One score out of 100', body: 'Sunlight for power, a direct link to Earth, a gentle slope and ice within reach, weighed into one number. "Check against NASA papers" puts our results next to published LOLA studies.' },
+  { target: 'timeline', title: 'A whole lunar month', body: 'Amber is sunlight, blue is Earth in view. The third row is the real link home: which NASA Deep Space Network antenna — G Goldstone, M Madrid, C Canberra — can see the Moon. Press play to watch shadows sweep the craters.' },
+  { target: 'month', title: 'Decide', body: 'Month totals, landing windows by the hour, and Compare for side-by-side sites. Or ask me for the top 5 sites of the whole south pole.' },
 ];
 
 const TOUR_RU: TourStep[] = [
   { target: null, title: 'Привет, я LUNA', body: 'Я помогаю выбрать, где и когда садиться у южного полюса Луны. Посадочному модулю нужны две вещи: Солнце на солнечных панелях и Земля над горизонтом для связи. Горы и края кратеров закрывают и то и другое. Давай покажу, как тут всё устроено.' },
   { target: 'sites', title: 'Выбери место посадки', body: 'Начни с районов Artemis III или выбери точку южного полюса, автоматическую станцию или место Аполлона. Можно просто кликнуть в любое место Луны.' },
-  { target: 'camera', title: 'Летай в 3D', body: 'Тяни мышью, чтобы двигаться, правой кнопкой или с Shift — наклоняй к горизонту, колесом — приближай. Переключи карту на «Свет» или «Лёд», чтобы увидеть, где Солнце светит весь год, а где не бывает никогда.' },
+  { target: 'camera', title: 'Летай в 3D', body: 'Тяни мышью, чтобы двигаться, правой кнопкой или с Shift — наклоняй к горизонту, колесом — приближай. Переключи карту на «Свет» или «Лёд», чтобы увидеть, где Солнце светит весь год, а где не бывает никогда, или на «Склоны»: на зелёное садиться можно, красное слишком круто.' },
   { target: 'readouts', title: 'Солнце и Земля сейчас', body: 'Как высоко стоят Солнце и Земля над настоящим рельефом и через сколько они зайдут за него. На полюсе Солнце ползёт по горизонту, поэтому даже небольшой хребет устраивает ночь.' },
   { target: 'horizon', title: 'Настоящий горизонт', body: 'Линия гор на 360° вокруг места по лазерной съёмке NASA LOLA и пути Солнца и Земли на ближайшие дни.' },
-  { target: 'timeline', title: 'Целый лунный месяц', body: 'Жёлтое — свет, синее — Земля видна. Тяни, чтобы листать время, или нажми «пуск» и смотри, как тени ползут по кратерам.' },
-  { target: 'month', title: 'Принимай решение', body: 'Итоги месяца, окна посадки по часам и «Сравнить» для нескольких мест. Или просто спроси меня, где лучше всего.' },
+  { target: 'score', title: 'Одна оценка из 100', body: 'Свет для энергии, прямая связь с Землёй, пологий склон и лёд рядом — всё сведено в одно число. «Сверить со статьями NASA» показывает наши расчёты рядом с опубликованными исследованиями LOLA.' },
+  { target: 'timeline', title: 'Целый лунный месяц', body: 'Жёлтое — свет, синее — Земля видна. Третья строка — настоящая связь: какая антенна NASA Deep Space Network видит Луну — G Голдстоун, M Мадрид, C Канберра. Нажми «пуск» и смотри, как тени ползут по кратерам.' },
+  { target: 'month', title: 'Принимай решение', body: 'Итоги месяца, окна посадки по часам и «Сравнить» для нескольких мест. Или попроси меня найти топ-5 мест всего южного полюса.' },
 ];
 
 export const tourFor = (lang: Lang): readonly TourStep[] => (lang === 'ru' ? TOUR_RU : TOUR_EN);
@@ -68,6 +72,8 @@ const UI = {
       'Right-drag or hold Shift and drag to turn and tilt toward the horizon.',
       'Scroll or pinch to zoom; click the Moon to drop a new site.',
       'Use the timeline at the bottom to change the date, or press play.',
+      'Map → Slopes shows where the ground is safe to land; the site score sums up light, DSN link, slope and ice.',
+      'The DSN row shows which NASA antenna (Goldstone, Madrid, Canberra) could talk to the lander.',
     ],
     aboutLines: [
       "NASA's Artemis and CLPS missions target the lunar south pole, where water ice hides in craters that never see the Sun.",
@@ -110,6 +116,8 @@ const UI = {
       'Правой кнопкой или с зажатым Shift — поворот и наклон к горизонту.',
       'Колесо или щипок — приближение; клик по Луне ставит новую точку.',
       'Таймлайн внизу меняет дату, кнопка «пуск» запускает время.',
+      'Карта → «Склоны» показывает, где садиться безопасно; оценка места сводит свет, связь DSN, уклон и лёд.',
+      'Строка «Связь DSN» показывает, какая антенна NASA (Голдстоун, Мадрид, Канберра) может говорить с модулем.',
     ],
     aboutLines: [
       'Миссии NASA Artemis и CLPS летят к южному полюсу Луны: там в кратерах, куда никогда не светит Солнце, прячется водяной лёд.',
@@ -122,7 +130,7 @@ const UI = {
 export const assistantText = (lang: Lang) => UI[lang];
 
 /** A plain-language briefing on the selected site, built from the live analysis. */
-export function explainSite(name: string, a: SiteAnalysis, lang: Lang): string[] {
+export function explainSite(name: string, a: SiteAnalysis, lang: Lang, view?: SiteScoreView): string[] {
   const { state, summary, nextSunChange, nextEarthChange } = a;
   const now = state.time;
   const dur = (ms: number) => formatDuration(ms, lang);
@@ -140,6 +148,10 @@ export function explainSite(name: string, a: SiteAnalysis, lang: Lang): string[]
   if (earthUp) {
     const tail = nextEarthChange ? (ru ? ` ещё ${dur(nextEarthChange - now)}` : ` for another ${dur(nextEarthChange - now)}`) : '';
     lines.push(ru ? `Земля видна — модуль может связываться напрямую${tail}.` : `Earth is in view, so a lander could radio home directly${tail}.`);
+    if (a.linkNow >= 0) {
+      const st = DSN_STATIONS[a.linkNow];
+      lines.push(ru ? `Сейчас Луну видит антенна NASA в ${st.name} (${st.place.ru}).` : `Right now NASA's antenna at ${st.name} (${st.place.en}) can see the Moon.`);
+    }
   } else {
     const span = nextEarthChange ? dur(nextEarthChange - now) : null;
     lines.push(ru ? `Земля скрыта${span ? ` ещё ${span}` : ' весь месяц'} — понадобится спутник-ретранслятор.` : `Earth is hidden${span ? ` for ${span}` : ' all month'} — a relay satellite would be needed.`);
@@ -149,6 +161,19 @@ export function explainSite(name: string, a: SiteAnalysis, lang: Lang): string[]
       ? `За ближайший месяц: свет ${formatPercent(summary.sunlitShare)}, Земля видна ${formatPercent(summary.earthShare)}, и то и другое ${formatPercent(summary.bothShare)}.`
       : `Over the next lunar month: ${formatPercent(summary.sunlitShare)} sunlight, ${formatPercent(summary.earthShare)} Earth in view, ${formatPercent(summary.bothShare)} both at once.`,
   );
+  lines.push(
+    ru
+      ? `Прямая связь через DSN ${formatPercent(a.linkShare)} месяца, свет и связь одновременно ${formatPercent(a.powerLinkShare)}.`
+      : `A direct DSN link is possible ${formatPercent(a.linkShare)} of the month, with sunlight at the same time ${formatPercent(a.powerLinkShare)}.`,
+  );
+  if (view) {
+    const ice = view.iceKm === null ? (ru ? 'льда в пределах 20 км нет' : 'no ice within 20 km') : ru ? `лёд в ${view.iceKm.toFixed(1)} км` : `ice ${view.iceKm.toFixed(1)} km away`;
+    lines.push(
+      ru
+        ? `Оценка места ${view.score.total}/100: уклон ${formatDeg(view.slopeDeg)}${view.slopeDeg > 8 ? ' — круто для посадки' : ' — садиться можно'}, ${ice}.`
+        : `Site score ${view.score.total}/100: slope ${formatDeg(view.slopeDeg)}${view.slopeDeg > 8 ? ', too steep to land' : ', fine to land'}, ${ice}.`,
+    );
+  }
   if (summary.longestDarkHours > 0) {
     const h = formatHours(summary.longestDarkHours, lang);
     lines.push(ru ? `Самая длинная ночь — ${h}: батареи и обогрев должны её пережить.` : `The longest night lasts ${h} — batteries and heaters must survive it.`);

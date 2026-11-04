@@ -66,7 +66,7 @@ function LinkRow({ link, y }: { link: Int8Array; y: number }) {
       bars.push(
         <g key={start} className={`dsn dsn--${DSN_STATIONS[station].id}`}>
           <rect x={x} y={y} width={width} height={ROW_H} rx={3}>
-            <title>{name}</title>
+            <title>{`NASA DSN · ${name}, ${DSN_STATIONS[station].place.en}`}</title>
           </rect>
           {width >= MIN_LABEL_W && <text x={x + width / 2} y={y + ROW_H / 2 + 3.5} textAnchor="middle">{name[0]}</text>}
         </g>,
@@ -109,6 +109,7 @@ export function TimelineBar({ timeline, link, time, onSeek }: TimelineBarProps) 
   const svgRef = useRef<SVGSVGElement>(null);
   const span = (timeline.sun.length - 1) * timeline.stepMs;
   const cursorX = ((time - timeline.start) / span) * W;
+  const stationNow = link[Math.round((time - timeline.start) / timeline.stepMs)] ?? -1;
 
   const seekFromPointer = (e: PointerEvent<SVGSVGElement>) => {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -122,7 +123,10 @@ export function TimelineBar({ timeline, link, time, onSeek }: TimelineBarProps) 
       <div className="timeline__labels" aria-hidden="true">
         <span className="legend legend--sun">{t('sunlight')}</span>
         <span className="legend legend--earth">{t('earthView')}</span>
-        <span className="legend legend--link">{t('link.row')}</span>
+        <span className="legend legend--link" title={t('link.legend')}>
+          {t('link.row')}
+          {stationNow >= 0 && <b className="legend__now">{DSN_STATIONS[stationNow].name[0]}</b>}
+        </span>
       </div>
       <svg
         ref={svgRef}

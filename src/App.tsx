@@ -65,7 +65,7 @@ function Navigator({ loaded }: Props) {
         <SitePicker />
         <SitePanel analysis={analysis} score={score} time={time} />
         <ComparePanel terrain={loaded.terrain} windowStart={windowStartFor(time)} />
-        <Assistant analysis={analysis} terrain={loaded.terrain} windowStart={windowStartFor(time)} polarRhoMax={loaded.manifest.polar.rhoMax} />
+        <Assistant analysis={analysis} score={score} terrain={loaded.terrain} windowStart={windowStartFor(time)} polarRhoMax={loaded.manifest.polar.rhoMax} />
         {isValidationOpen && <ValidationPanel terrain={loaded.terrain} onClose={closeValidation} />}
         <footer className="panel dock" data-tour="timeline">
           <TimeControls />

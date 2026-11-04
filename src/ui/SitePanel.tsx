@@ -27,7 +27,7 @@ function ScoreCard({ view }: { view: SiteScoreView }) {
     { key: 'score.ice', value: iceKm === null ? t('score.noIce') : `${iceKm.toFixed(1)} km`, share: score.parts.ice },
   ] as const;
   return (
-    <div className="score" title={t('score.hint')}>
+    <div className="score" title={t('score.hint')} data-tour="score">
       <div className="score__total">
         <span className="muted">{t('score.title')}</span>
         <b>{score.total}</b>
@@ -132,7 +132,7 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
           detail={
             state.earth.visibleFraction >= UP_SHARE
               ? analysis.linkNow >= 0
-                ? t('link.via', { s: DSN_STATIONS[analysis.linkNow].name })
+                ? t('link.via', { s: DSN_STATIONS[analysis.linkNow].name, p: DSN_STATIONS[analysis.linkNow].place[lang] })
                 : t('link.noStation')
               : t('kmAway', { km: Math.round(state.earth.distanceKm).toLocaleString('en-US') })
           }

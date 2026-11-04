@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { SITES } from '../data/sites';
 import { WINDOW_MS, type SiteAnalysis } from '../hooks/useSiteAnalysis';
+import type { SiteScoreView } from '../hooks/useSiteScore';
 import { formatLatLon, formatPercent, HOUR_MS } from '../lib/format';
 import { findBestSites } from '../lib/candidates';
 import { getLightMap } from '../lib/lightMap';
@@ -12,6 +13,7 @@ import { assistantText, describeRanking, explainSite, tourFor } from './assistan
 
 type Props = {
   analysis: SiteAnalysis;
+  score: SiteScoreView;
   terrain: Terrain;
   windowStart: number;
   polarRhoMax: number;
@@ -132,7 +134,7 @@ function RobotAvatar({ isTalking }: { isTalking: boolean }) {
 }
 
 /** LUNA, the mission assistant: a guided tour, plain-language briefings and site recommendations. */
-export function Assistant({ analysis, terrain, windowStart, polarRhoMax }: Props) {
+export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }: Props) {
   const lang = useNavigator((s) => s.lang);
   const site = useNavigator((s) => s.site);
   const compare = useNavigator((s) => s.compare);
@@ -334,7 +336,7 @@ export function Assistant({ analysis, terrain, windowStart, polarRhoMax }: Props
                 {isThinking && <p className="muted luna-thinking">{text.thinking}</p>}
               </div>
               <div className="luna-chips">
-                <button type="button" onClick={() => { say('user', [text.explain]); say('luna', explainSite(siteLabel(site, lang), analysis, lang)); }}>{text.explain}</button>
+                <button type="button" onClick={() => { say('user', [text.explain]); say('luna', explainSite(siteLabel(site, lang), analysis, lang, score)); }}>{text.explain}</button>
                 <button type="button" disabled={isThinking} onClick={() => void findBest()}>{text.best}</button>
                 <button type="button" onClick={() => useNavigator.getState().setValidationOpen(true)}>{text.accuracy}</button>
                 <button type="button" disabled={isThinking} onClick={() => void rank('both', text.artemis, true)}>{text.artemis}</button>

@@ -25,8 +25,12 @@ export interface BestSite extends Spot {
   linkShare: number;
 }
 
-/** Spots sunlit less than this share of the year cannot keep a lander alive through the night. */
-const MIN_ANNUAL_LIGHT = 0.6;
+/**
+ * Candidates must be within this fraction of the sunniest pixel. Relative, not absolute: the map's
+ * 1 km cells average sharp crests with their slopes, so even the best cell reads only ~60%; the
+ * full-month analysis afterwards measures the true share at each spot.
+ */
+const BRIGHT_FRACTION = 0.85;
 const SHORTLIST = 36;
 const SHORTLIST_SPACING_KM = 3;
 /** The final picks are distinct places, not neighbouring pixels of one ridge. */
@@ -44,9 +48,12 @@ export function distanceKm(a: { lat: number; lon: number }, b: { lat: number; lo
 
 /** Bright, gentle spots with permanent shadow (likely ice) within reach. */
 export function prefilter(map: LightMap, terrain: Terrain): Spot[] {
+  let brightest = 0;
+  for (let i = 0; i < map.width * map.height; i++) if (map.data[i * 4 + 2] > 127) brightest = Math.max(brightest, map.data[i * 4]);
+  const minLit = brightest * BRIGHT_FRACTION;
   const spots: Spot[] = [];
   for (let i = 0; i < map.width * map.height; i++) {
-    if (map.data[i * 4] < MIN_ANNUAL_LIGHT * 255) continue;
+    if (map.data[i * 4] < minLit) continue;
     const { lat, lon } = pixelToLatLon(map, i);
     const annualLight = annualLightAt(map, lat, lon);
     if (annualLight === null) continue;

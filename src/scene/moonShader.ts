@@ -276,12 +276,22 @@ const terrainData = /* glsl */ `
     return vec2(east, asin(clamp(p.z, -1.0, 1.0)) - atlasOrigin.y) / atlasSpan;
   }
 
-  /** Atlas weight with a fade at its edge, times whether a tile exists there (alpha). */
+  /**
+   * Atlas weight with a fade at its edge, times whether tiles exist all around the point (alpha).
+   * Checking the neighbours too matters: next to a missing tile (the polar bands) the bilinear
+   * taps would read its empty texels as -9 km, cutting a trench and a black seam along 60°S.
+   */
   float atlasWeight(vec2 uv) {
     if (hasAtlas < 0.5 || any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return 0.0;
     vec2 edge = min(uv, 1.0 - uv);
-    ivec2 texel = clamp(ivec2(uv * atlasHeightSize), ivec2(0), ivec2(int(atlasHeightSize) - 1));
-    return smoothstep(0.0, ATLAS_BLEND, min(edge.x, edge.y)) * texelFetch(atlasHeightMap, texel, 0).a;
+    ivec2 last = ivec2(int(atlasHeightSize) - 1);
+    ivec2 texel = clamp(ivec2(uv * atlasHeightSize), ivec2(0), last);
+    float present = 1.0;
+    for (int dy = -1; dy <= 1; dy++)
+    for (int dx = -1; dx <= 1; dx++) {
+      present = min(present, texelFetch(atlasHeightMap, clamp(texel + ivec2(dx, dy), ivec2(0), last), 0).a);
+    }
+    return smoothstep(0.0, ATLAS_BLEND, min(edge.x, edge.y)) * present;
   }
 
   /** Whole-Moon height: the streamed detail tiles where loaded, the coarse global map elsewhere. */

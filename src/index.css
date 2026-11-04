@@ -134,6 +134,8 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 .legend::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .legend--sun::before { background: var(--sun); }
 .legend--earth::before { background: var(--earth); }
+.legend__now { font: 600 10px var(--mono); color: #0b0c0f; background: var(--earth); border-radius: 3px; padding: 0 3px; margin-left: 2px; }
+.legend--link { cursor: help; }
 .legend--link::before { background: linear-gradient(90deg, var(--earth) 33%, #5a8fd6 33% 66%, #a9cdff 66%); border-radius: 2px; }
 .legend--terrain::before { background: var(--terrain); border: 1px solid var(--terrain-edge); border-radius: 2px; }
 
@@ -146,7 +148,8 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 .score__factors { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 14px; margin: 0; }
 .score__factors > div { display: grid; grid-template-columns: 1fr auto; gap: 3px 6px; font-size: 11.5px; }
 .score__factors dt { color: var(--muted); }
-.score__factors dd { margin: 0; font-family: var(--mono); color: var(--text); }
+.score__factors dd { margin: 0; font-family: var(--mono); color: var(--text); white-space: nowrap; }
+.score__factors dt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .score__bar { grid-column: 1 / -1; height: 3px; border-radius: 99px; background: var(--line); overflow: hidden; }
 .score__bar span { display: block; height: 100%; background: var(--sun); }
 .score__check { font-size: 11px; color: var(--sun); margin-top: 10px; white-space: nowrap; }
@@ -410,6 +413,10 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 
 /* Compact, steady top bar: the layer legend floats instead of pushing anything down */
 .stage-controls { position: absolute; }
+/* Centred in the gap between the side panels (see .hud columns), so longer labels never run under them. */
+@media (min-width: 961px) {
+  .stage-controls { left: calc(16px + 290px + 16px); right: calc(16px + 390px + 16px); transform: none; }
+}
 .layer-note { position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); white-space: nowrap; }
 
 /* LUNA sits at the top right of the 3D view, clear of the panels and the comparison */

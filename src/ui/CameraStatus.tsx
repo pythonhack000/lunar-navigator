@@ -1,14 +1,13 @@
 import { useT } from '../i18n';
-import { findSunlitNearIce, findSunniest, loadLightMap, type LightMap } from '../lib/lightMap';
+import { findSunlitNearIce, findSunniest, getLightMap } from '../lib/lightMap';
 import { useNavigator, type MapLayer, type ReliefScale } from '../state/store';
 
 type Props = { polarRhoMax: number };
 
 const RELIEF_OPTIONS: ReliefScale[] = [1, 3, 5];
-const LAYERS: MapLayer[] = ['none', 'light', 'ice'];
+const LAYERS: MapLayer[] = ['none', 'light', 'ice', 'slope'];
 /** Above this the view reads as "the whole Moon", so the button offers to fly back down. */
 const GLOBE_ALTITUDE_KM = 2500;
-const LIGHT_MAP_URL = `${import.meta.env.BASE_URL}textures/south_light_512.png`;
 
 function formatAltitude(km: number): string {
   if (km >= 1000) return `${(km / 1000).toFixed(1)}k km`;
@@ -16,15 +15,6 @@ function formatAltitude(km: number): string {
   return `${km.toFixed(1)} km`;
 }
 
-let lightMap: Promise<LightMap> | null = null;
-/** Loaded once, on the first search; a failed load is retried next time. */
-function getLightMap(rhoMax: number): Promise<LightMap> {
-  lightMap ??= loadLightMap(LIGHT_MAP_URL, rhoMax).catch((err: unknown) => {
-    lightMap = null;
-    throw err;
-  });
-  return lightMap;
-}
 
 /** Controls above the 3D scene: view, live altitude, relief, map layer and language. */
 export function CameraStatus({ polarRhoMax }: Props) {
@@ -77,7 +67,13 @@ export function CameraStatus({ polarRhoMax }: Props) {
           {lang === 'en' ? 'RU' : 'EN'}
         </button>
       </div>
-      {layer !== 'none' && (
+      {layer === 'slope' && (
+        <div className="layer-note">
+          <span className="layer-key layer-key--slope" />
+          {t('layer.slopeLegend')}
+        </div>
+      )}
+      {(layer === 'light' || layer === 'ice') && (
         <div className="layer-note">
           <span className={`layer-key layer-key--${layer}`} />
           {t(layer === 'light' ? 'layer.lightLegend' : 'layer.iceLegend')}

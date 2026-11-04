@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findSunlitNearIce, findSunniest, type LightMap } from '../lightMap';
+import { annualLightAt, findSunlitNearIce, findSunniest, iceDistanceKm, pixelToLatLon, type LightMap } from '../lightMap';
 
 function makeMap(size: number, pixels: Record<number, [number, number]>): LightMap {
   const data = new Uint8ClampedArray(size * size * 4);
@@ -36,3 +36,34 @@ describe('light map search', () => {
     expect(near.lon).toBeGreaterThan(-90);
   });
 });
+
+describe('point lookups', () => {
+  const size = 64;
+  const at = (col: number, row: number) => row * size + col;
+  const map = makeMap(size, {
+    [at(40, 40)]: [0, 255], // permanent shadow
+    [at(43, 40)]: [200, 0], // 3 km from it
+    [at(10, 10)]: [128, 0], // far from any shadow
+  });
+
+  it('measures the distance to the nearest permanent shadow', () => {
+    const { lat, lon } = pixelToLatLon(map, at(43, 40));
+    expect(iceDistanceKm(map, lat, lon)).toBeCloseTo(3, 0);
+  });
+
+  it('returns null when no shadow lies within reach', () => {
+    const { lat, lon } = pixelToLatLon(map, at(10, 10));
+    expect(iceDistanceKm(map, lat, lon, 20)).toBeNull();
+  });
+
+  it('reads the annual sunlit share at a point', () => {
+    const { lat, lon } = pixelToLatLon(map, at(43, 40));
+    expect(annualLightAt(map, lat, lon)).toBeCloseTo(200 / 255, 3);
+  });
+
+  it('has nothing to say outside the map', () => {
+    expect(annualLightAt(map, 0, 0)).toBeNull();
+    expect(iceDistanceKm(map, 0, 0)).toBeNull();
+  });
+});
+

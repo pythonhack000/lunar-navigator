@@ -1,24 +1,34 @@
 import { useEffect, useRef, useState } from 'react';
 import { SITES } from '../data/sites';
 import { WINDOW_MS, type SiteAnalysis } from '../hooks/useSiteAnalysis';
-import { formatPercent, HOUR_MS } from '../lib/format';
+import { formatLatLon, formatPercent, HOUR_MS } from '../lib/format';
+import { findBestSites } from '../lib/candidates';
+import { getLightMap } from '../lib/lightMap';
 import { rankSitesAsync, type RankedSite, type RankGoal } from '../lib/ranking';
 import type { Terrain } from '../lib/terrain';
 import { siteLabel } from '../i18n';
-import { MAX_COMPARE, useNavigator } from '../state/store';
+import { MAX_COMPARE, useNavigator, type SelectedSite } from '../state/store';
 import { assistantText, describeRanking, explainSite, tourFor } from './assistantScript';
 
 type Props = {
   analysis: SiteAnalysis;
   terrain: Terrain;
   windowStart: number;
+  polarRhoMax: number;
 };
+
+/** A landing spot LUNA found, ready to fly to. */
+interface BestPick {
+  site: SelectedSite;
+  score: number;
+}
 
 interface Message {
   id: number;
   from: 'luna' | 'user';
   lines: string[];
   picks?: RankedSite[];
+  best?: BestPick[];
 }
 
 const SEEN_KEY = 'luna-tour-seen';
@@ -122,7 +132,7 @@ function RobotAvatar({ isTalking }: { isTalking: boolean }) {
 }
 
 /** LUNA, the mission assistant: a guided tour, plain-language briefings and site recommendations. */
-export function Assistant({ analysis, terrain, windowStart }: Props) {
+export function Assistant({ analysis, terrain, windowStart, polarRhoMax }: Props) {
   const lang = useNavigator((s) => s.lang);
   const site = useNavigator((s) => s.site);
   const compare = useNavigator((s) => s.compare);
@@ -172,8 +182,8 @@ export function Assistant({ analysis, terrain, windowStart }: Props) {
     setMessages([{ id: nextId.current++, from: 'luna', lines: [assistantText(lang).switched] }]);
   }, [lang]);
 
-  const say = (from: Message['from'], lines: string[], picks?: RankedSite[]) => {
-    setMessages((m) => [...m, { id: nextId.current++, from, lines, picks }]);
+  const say = (from: Message['from'], lines: string[], picks?: RankedSite[], best?: BestPick[]) => {
+    setMessages((m) => [...m, { id: nextId.current++, from, lines, picks, best }]);
     if (from === 'luna' && hasVoice) speak(lines.join(' '), lang);
   };
 
@@ -209,7 +219,22 @@ export function Assistant({ analysis, terrain, windowStart }: Props) {
     }
   };
 
-  const addToCompare = (picks: RankedSite[]) => {
+  const findBest = async () => {
+    say('user', [text.best]);
+    setThinking(true);
+    try {
+      const map = await getLightMap(polarRhoMax);
+      const found = await findBestSites(map, terrain, analysis.dsn);
+      const best = found.map((b, i) => ({ site: { id: null, name: `${text.candidate} ${i + 1}`, lat: b.lat, lon: b.lon }, score: b.score.total }));
+      say('luna', [best.length > 0 ? text.bestIntro : text.bestNone], undefined, best);
+    } catch {
+      say('luna', [text.error]);
+    } finally {
+      setThinking(false);
+    }
+  };
+
+  const addToCompare = (picks: { site: SelectedSite }[]) => {
     for (const p of picks) {
       const already = useNavigator.getState().compare.some((c) => c.lat === p.site.lat && c.lon === p.site.lon);
       if (!already && useNavigator.getState().compare.length < MAX_COMPARE) toggleCompare(p.site);
@@ -272,6 +297,22 @@ export function Assistant({ analysis, terrain, windowStart }: Props) {
                 {messages.map((m) => (
                   <div key={m.id} className={`luna-msg luna-msg--${m.from}`}>
                     {m.from === 'luna' ? <Typewriter lines={m.lines} isLive={m.id === lastLunaId} /> : m.lines.map((l, i) => <p key={i}>{l}</p>)}
+                    {m.best && m.best.length > 0 && (
+                      <>
+                        <ol className="luna-picks">
+                          {m.best.map((p) => (
+                            <li key={p.site.name}>
+                              <span>{p.site.name} <small className="muted">{formatLatLon(p.site.lat, p.site.lon)}</small></span>
+                              <span className="mono">{p.score}/100</span>
+                              <button type="button" className="link-button" onClick={() => selectSite(p.site)}>{text.fly}</button>
+                            </li>
+                          ))}
+                        </ol>
+                        <button type="button" className="link-button luna-add" disabled={compare.length >= MAX_COMPARE} onClick={() => addToCompare(m.best!.slice(0, 3))}>
+                          {text.addCompare}
+                        </button>
+                      </>
+                    )}
                     {m.picks && (
                       <>
                         <ol className="luna-picks">
@@ -294,6 +335,8 @@ export function Assistant({ analysis, terrain, windowStart }: Props) {
               </div>
               <div className="luna-chips">
                 <button type="button" onClick={() => { say('user', [text.explain]); say('luna', explainSite(siteLabel(site, lang), analysis, lang)); }}>{text.explain}</button>
+                <button type="button" disabled={isThinking} onClick={() => void findBest()}>{text.best}</button>
+                <button type="button" onClick={() => useNavigator.getState().setValidationOpen(true)}>{text.accuracy}</button>
                 <button type="button" disabled={isThinking} onClick={() => void rank('both', text.artemis, true)}>{text.artemis}</button>
                 {(['power', 'comms', 'both'] as const).map((g) => (
                   <button key={g} type="button" disabled={isThinking} onClick={() => void rank(g, text.goals[g], false)}>{text.goals[g]}</button>

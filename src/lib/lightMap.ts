@@ -41,6 +41,51 @@ export function pixelToLatLon(map: LightMap, index: number): { lat: number; lon:
   return { lat: (2 * Math.atan(r / 2) * 180) / Math.PI - 90, lon: (Math.atan2(y, x) * 180) / Math.PI };
 }
 
+/** Pixel index under a latitude/longitude, or null outside the map. */
+export function latLonToPixel(map: LightMap, lat: number, lon: number): number | null {
+  const colat = ((lat + 90) * Math.PI) / 180;
+  const r = 2 * Math.tan(colat / 2);
+  const x = r * Math.cos((lon * Math.PI) / 180);
+  const y = r * Math.sin((lon * Math.PI) / 180);
+  const col = Math.floor(((x / map.rhoMax + 1) / 2) * map.width);
+  const row = Math.floor(((1 - y / map.rhoMax) / 2) * map.height);
+  if (col < 0 || row < 0 || col >= map.width || row >= map.height) return null;
+  const i = row * map.width + col;
+  return map.data[i * 4 + 2] > COVERED ? i : null;
+}
+
+/** Near the pole the stereographic plane is at true scale (1 unit = one Moon radius). */
+const kmPerPixel = (map: LightMap): number => ((2 * map.rhoMax) / map.width) * MOON_RADIUS_KM;
+
+/** Share of the year the point is sunlit (0..1), or null outside the map. */
+export function annualLightAt(map: LightMap, lat: number, lon: number): number | null {
+  const i = latLonToPixel(map, lat, lon);
+  return i === null ? null : map.data[i * 4] / 255;
+}
+
+/** Distance to the nearest permanently shadowed (likely icy) pixel, km, or null if none within `maxKm`. */
+export function iceDistanceKm(map: LightMap, lat: number, lon: number, maxKm = 25): number | null {
+  const i = latLonToPixel(map, lat, lon);
+  if (i === null) return null;
+  const col = i % map.width;
+  const row = Math.floor(i / map.width);
+  const km = kmPerPixel(map);
+  const reach = Math.ceil(maxKm / km);
+  let best = Infinity;
+  for (let dy = -reach; dy <= reach; dy++) {
+    const y = row + dy;
+    if (y < 0 || y >= map.height) continue;
+    for (let dx = -reach; dx <= reach; dx++) {
+      const x = col + dx;
+      if (x < 0 || x >= map.width) continue;
+      const j = y * map.width + x;
+      if (map.data[j * 4 + 2] <= COVERED || map.data[j * 4 + 1] <= SHADOWED) continue;
+      best = Math.min(best, Math.hypot(dx, dy) * km);
+    }
+  }
+  return best <= maxKm ? best : null;
+}
+
 /** Pixels within `radiusPx` of a permanently shadowed pixel. */
 function nearIceMask(map: LightMap, radiusPx: number): Uint8Array {
   const { data, width, height } = map;
@@ -82,8 +127,18 @@ export const findSunniest = (map: LightMap) => pixelToLatLon(map, sunniestIndex(
 
 /** The sunniest spot within ICE_REACH_KM of permanent shadow: power and water side by side. */
 export function findSunlitNearIce(map: LightMap): { lat: number; lon: number } {
-  // Near the pole the stereographic plane is at true scale (1 unit = one Moon radius).
-  const kmPerPx = ((2 * map.rhoMax) / map.width) * MOON_RADIUS_KM;
-  const radiusPx = Math.max(1, Math.round(ICE_REACH_KM / kmPerPx));
+  const radiusPx = Math.max(1, Math.round(ICE_REACH_KM / kmPerPixel(map)));
   return pixelToLatLon(map, sunniestIndex(map, nearIceMask(map, radiusPx)));
+}
+
+const LIGHT_MAP_URL = `${import.meta.env.BASE_URL}textures/south_light_512.png`;
+let shared: Promise<LightMap> | null = null;
+
+/** The south polar light map, loaded once for every user of it; a failed load is retried next time. */
+export function getLightMap(rhoMax: number): Promise<LightMap> {
+  shared ??= loadLightMap(LIGHT_MAP_URL, rhoMax).catch((err: unknown) => {
+    shared = null;
+    throw err;
+  });
+  return shared;
 }

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { linkSeries, linkShare, sampleDsn, type DsnTimeline } from '../lib/dsn';
 import { DAY_MS, HOUR_MS } from '../lib/format';
 import { computeHorizon, type HorizonProfile } from '../lib/horizon';
 import type { Terrain } from '../lib/terrain';
@@ -25,6 +26,15 @@ export interface SiteAnalysis {
   summary: TimelineSummary;
   nextSunChange: number | null;
   nextEarthChange: number | null;
+  /** Which DSN complex can see the Moon over the window (the same for every site). */
+  dsn: DsnTimeline;
+  /** Station carrying a direct link at each timeline sample (Earth in view + DSN), or -1. */
+  link: Int8Array;
+  /** Share of the window with a direct link, and with a link and sunlight together. */
+  linkShare: number;
+  powerLinkShare: number;
+  /** Station that would carry the link right now, or -1. */
+  linkNow: number;
 }
 
 /** The timeline window only moves once a day so it is not recomputed every frame while playing. */
@@ -41,11 +51,24 @@ export function useTimeline(site: Site, profile: HorizonProfile, windowStart: nu
   return useMemo(() => sampleTimeline(site, profile, windowStart, WINDOW_MS, HOUR_MS), [site, profile, windowStart]);
 }
 
+/** The DSN view of the Moon depends only on time, so it is computed once per window for all sites. */
+export function useDsn(windowStart: number): DsnTimeline {
+  return useMemo(() => sampleDsn(windowStart, WINDOW_MS, HOUR_MS), [windowStart]);
+}
+
 export function useSiteAnalysis(terrain: Terrain, lat: number, lon: number, time: number): SiteAnalysis {
   const { site, profile } = useHorizon(terrain, lat, lon);
-  const timeline = useTimeline(site, profile, windowStartFor(time));
+  const windowStart = windowStartFor(time);
+  const timeline = useTimeline(site, profile, windowStart);
   const summary = useMemo(() => summarizeTimeline(timeline), [timeline]);
+  const dsn = useDsn(windowStart);
+  const links = useMemo(() => {
+    const link = linkSeries(timeline.earth, dsn);
+    return { link, linkShare: linkShare(link), powerLinkShare: linkShare(link, timeline.sun) };
+  }, [timeline, dsn]);
   const state = siteState(site, profile, time);
+  const sample = Math.round((time - timeline.start) / timeline.stepMs);
+  const linkNow = state.earth.visibleFraction >= 0.5 ? (dsn.station[sample] ?? -1) : -1;
   return {
     site,
     profile,
@@ -54,5 +77,8 @@ export function useSiteAnalysis(terrain: Terrain, lat: number, lon: number, time
     summary,
     nextSunChange: nextTransition(site, profile, timeline, time, 'sun'),
     nextEarthChange: nextTransition(site, profile, timeline, time, 'earth'),
+    dsn,
+    ...links,
+    linkNow,
   };
 }

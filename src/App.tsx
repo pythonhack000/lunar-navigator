@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSiteAnalysis, windowStartFor } from './hooks/useSiteAnalysis';
+import { useSiteScore } from './hooks/useSiteScore';
 import { translate } from './i18n';
 import { useThrottledTime } from './hooks/useThrottledTime';
 import { loadTerrain, type LoadedTerrain } from './lib/loadTerrain';
@@ -18,6 +19,7 @@ import { SitePanel } from './ui/SitePanel';
 import { SitePicker } from './ui/SitePicker';
 import { TimeControls } from './ui/TimeControls';
 import { TimelineBar } from './ui/TimelineBar';
+import { ValidationPanel } from './ui/ValidationPanel';
 
 type Props = { loaded: LoadedTerrain };
 
@@ -28,6 +30,10 @@ function Navigator({ loaded }: Props) {
   const setTime = useNavigator((s) => s.setTime);
   const selectSite = useNavigator((s) => s.selectSite);
   const analysis = useSiteAnalysis(loaded.terrain, site.lat, site.lon, time);
+  const score = useSiteScore(loaded.terrain, loaded.manifest.polar.rhoMax, analysis);
+  const isValidationOpen = useNavigator((s) => s.isValidationOpen);
+  const setValidationOpen = useNavigator((s) => s.setValidationOpen);
+  const closeValidation = useCallback(() => setValidationOpen(false), [setValidationOpen]);
   const lang = useNavigator((s) => s.lang);
   useLangScramble();
   const handlePick = useCallback(
@@ -57,12 +63,13 @@ function Navigator({ loaded }: Props) {
           <p>{translate(lang, 'brand.subtitle')}</p>
         </header>
         <SitePicker />
-        <SitePanel analysis={analysis} time={time} />
+        <SitePanel analysis={analysis} score={score} time={time} />
         <ComparePanel terrain={loaded.terrain} windowStart={windowStartFor(time)} />
-        <Assistant analysis={analysis} terrain={loaded.terrain} windowStart={windowStartFor(time)} />
+        <Assistant analysis={analysis} terrain={loaded.terrain} windowStart={windowStartFor(time)} polarRhoMax={loaded.manifest.polar.rhoMax} />
+        {isValidationOpen && <ValidationPanel terrain={loaded.terrain} onClose={closeValidation} />}
         <footer className="panel dock" data-tour="timeline">
           <TimeControls />
-          <TimelineBar timeline={analysis.timeline} time={time} onSeek={setTime} />
+          <TimelineBar timeline={analysis.timeline} link={analysis.link} time={time} onSeek={setTime} />
         </footer>
       </div>
     </div>

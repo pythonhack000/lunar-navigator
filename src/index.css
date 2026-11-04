@@ -134,9 +134,31 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 .legend::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .legend--sun::before { background: var(--sun); }
 .legend--earth::before { background: var(--earth); }
+.legend--link::before { background: linear-gradient(90deg, var(--earth) 33%, #5a8fd6 33% 66%, #a9cdff 66%); border-radius: 2px; }
 .legend--terrain::before { background: var(--terrain); border: 1px solid var(--terrain-edge); border-radius: 2px; }
 
 .month { border-top: 1px solid var(--line); padding-top: 12px; }
+.score { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; border-top: 1px solid var(--line); padding-top: 12px; }
+.score__total { display: grid; justify-items: start; line-height: 1; }
+.score__total .muted { font-size: 11px; margin-bottom: 6px; }
+.score__total b { font: 600 34px var(--mono); color: var(--sun); }
+.score__total small { color: var(--faint); font: 11px var(--mono); margin-top: 2px; }
+.score__factors { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 14px; margin: 0; }
+.score__factors > div { display: grid; grid-template-columns: 1fr auto; gap: 3px 6px; font-size: 11.5px; }
+.score__factors dt { color: var(--muted); }
+.score__factors dd { margin: 0; font-family: var(--mono); color: var(--text); }
+.score__bar { grid-column: 1 / -1; height: 3px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.score__bar span { display: block; height: 100%; background: var(--sun); }
+.score__check { font-size: 11px; color: var(--sun); margin-top: 10px; white-space: nowrap; }
+.validation { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow: auto; }
+.validation__table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
+.validation__table th, .validation__table td { text-align: left; padding: 10px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+.validation__table thead th { color: var(--faint); font-weight: 500; font-size: 11.5px; border-top: 0; }
+.validation__table small { display: block; font-size: 11px; margin-top: 3px; }
+.validation__table td:nth-child(2), .validation__table td:nth-child(3) { font-family: var(--mono); white-space: nowrap; }
+.validation__table td small { font-family: var(--font, inherit); color: var(--faint); }
+.validation__table td.is-match small, .validation__table td.is-close small { color: var(--sun); }
+.validation__note { font-size: 12px; margin-top: 12px; line-height: 1.5; }
 .month__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0; }
 .month__grid dd { font-size: 15px; }
 
@@ -167,10 +189,15 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 
 .timeline { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: start; }
 .timeline__labels { display: flex; flex-direction: column; gap: 6px; padding-top: 1px; }
-.timeline svg { width: 100%; height: 50px; display: block; cursor: ew-resize; touch-action: none; }
+.timeline svg { width: 100%; height: 70px; display: block; cursor: ew-resize; touch-action: none; }
 .row-bg { fill: rgba(255, 255, 255, 0.04); }
 .row--sun rect:not(.row-bg) { fill: var(--sun); }
 .row--earth rect:not(.row-bg) { fill: var(--earth); }
+/* DSN complexes: shades of the Earth colour, so the link reads as part of "talking to Earth". */
+.dsn rect { fill: var(--earth); }
+.dsn--madrid rect { fill: #5a8fd6; }
+.dsn--canberra rect { fill: #a9cdff; }
+.dsn text { fill: #0b0c0f; font: 600 10px var(--mono); pointer-events: none; }
 .day-ticks line { stroke: var(--faint); }
 .day-ticks text { fill: var(--faint); font: 10px var(--mono); }
 .cursor { stroke: #fff; stroke-width: 2; vector-effect: non-scaling-stroke; }
@@ -334,6 +361,7 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 .layer-key { width: 42px; height: 8px; border-radius: 4px; }
 .layer-key--light { background: linear-gradient(90deg, #0a1250, #ffb547, #fff4d9); }
 .layer-key--ice { background: #59d9ff; }
+.layer-key--slope { background: linear-gradient(90deg, #40cc73 0 45%, #ffb547 55% 75%, #f2453a 85%); }
 
 /* Landing calendar */
 .modal-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.55); display: grid; place-items: center; padding: 16px; }
@@ -387,7 +415,7 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
 /* LUNA sits at the top right of the 3D view, clear of the panels and the comparison */
 .luna { right: 430px; top: 92px; bottom: auto; flex-direction: column-reverse; align-items: flex-end; }
 /* Below the launcher, reaching down to just above the timeline dock (~340px of chrome above and below). */
-.luna-panel { height: max(320px, calc(100vh - 340px)); max-height: none; }
+.luna-panel { height: max(320px, calc(100vh - 360px)); max-height: none; }
 .luna-panel .luna-messages { flex: 1; }
 .luna-panel .luna-tour { flex: 1; display: flex; flex-direction: column; }
 .luna-panel .luna-tour p { font-size: 14px; line-height: 1.55; }

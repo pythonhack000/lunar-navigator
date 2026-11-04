@@ -45,7 +45,7 @@ const DETAIL_CELLS_KM: [number, number, number] = [0.6, 0.2, 0.07];
 const DETAIL_STRENGTH = 0.22;
 /** Stream detail tiles only once the camera is within ~870 km of the ground. */
 const ATLAS_RANGE = 0.5;
-const LAYER_MODES = { none: 0, light: 1, ice: 2 } as const;
+const LAYER_MODES = { none: 0, light: 1, ice: 2, slope: 3 } as const;
 /** Bound until the first atlas arrives; hasAtlas = 0 keeps the shader from reading it. */
 const EMPTY_TEXTURE = new DataTexture(new Uint8Array(4), 1, 1);
 EMPTY_TEXTURE.needsUpdate = true;

@@ -16,7 +16,7 @@ export type PlaybackSpeed = 1 | 6 | 24;
 
 export type ReliefScale = 1 | 3 | 5;
 
-export type MapLayer = 'none' | 'light' | 'ice';
+export type MapLayer = 'none' | 'light' | 'ice' | 'slope';
 
 /** Unnamed places: clicked on the map, or found on the light map. */
 export type SiteKind = 'custom' | 'brightest' | 'nearIce';
@@ -77,6 +77,9 @@ interface NavigatorState {
   /** True once the opening descent to the first site is over (or the user took the controls). */
   landed: boolean;
   setLanded: () => void;
+  /** The "How accurate is this?" comparison with published results. */
+  isValidationOpen: boolean;
+  setValidationOpen: (open: boolean) => void;
   setTime: (time: number) => void;
   setGlobeView: (isGlobeView: boolean) => void;
   setPlaying: (playing: boolean) => void;
@@ -125,6 +128,8 @@ export const useNavigator = create<NavigatorState>((set) => ({
   finishIntro: () => set({ introDone: true }),
   landed: false,
   setLanded: () => set({ landed: true }),
+  isValidationOpen: false,
+  setValidationOpen: (isValidationOpen) => set({ isValidationOpen }),
   setTime: (time) => set({ time }),
   setGlobeView: (isGlobeView) => set({ isGlobeView }),
   setPlaying: (playing) => set({ playing }),

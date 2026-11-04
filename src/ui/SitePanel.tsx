@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import type { SiteAnalysis } from '../hooks/useSiteAnalysis';
+import type { SiteScoreView } from '../hooks/useSiteScore';
+import { DSN_STATIONS } from '../lib/dsn';
 import { siteLabel, useT, type Translate } from '../i18n';
 import { formatDeg, formatDuration, formatHours, formatLatLon, formatPercent } from '../lib/format';
 import type { BodyView } from '../lib/visibility';
@@ -9,7 +11,40 @@ import { LandingCalendar } from './LandingCalendar';
 
 interface SitePanelProps {
   analysis: SiteAnalysis;
+  score: SiteScoreView;
   time: number;
+}
+
+/** One line per factor: what it is, the measured value, and how much of its full credit it earns. */
+function ScoreCard({ view }: { view: SiteScoreView }) {
+  const t = useT();
+  const setValidationOpen = useNavigator((s) => s.setValidationOpen);
+  const { score, slopeDeg, iceKm } = view;
+  const factors = [
+    { key: 'score.sun', value: formatPercent(score.parts.sun), share: score.parts.sun },
+    { key: 'score.link', value: formatPercent(score.parts.link), share: score.parts.link },
+    { key: 'score.slope', value: formatDeg(slopeDeg), share: score.parts.slope },
+    { key: 'score.ice', value: iceKm === null ? t('score.noIce') : `${iceKm.toFixed(1)} km`, share: score.parts.ice },
+  ] as const;
+  return (
+    <div className="score" title={t('score.hint')}>
+      <div className="score__total">
+        <span className="muted">{t('score.title')}</span>
+        <b>{score.total}</b>
+        <small>/100</small>
+        <button type="button" className="link-button score__check" onClick={() => setValidationOpen(true)}>{t('val.open')} →</button>
+      </div>
+      <dl className="score__factors">
+        {factors.map((f) => (
+          <div key={f.key}>
+            <dt>{t(f.key)}</dt>
+            <dd>{f.value}</dd>
+            <span className="score__bar"><span style={{ width: `${Math.round(f.share * 100)}%` }} /></span>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
 }
 
 const UP_SHARE = 0.5;
@@ -60,7 +95,7 @@ function Readout({ tone, body, nextChange, time, detail }: ReadoutProps) {
  * The essentials first (Sun, Earth, the horizon); month totals and landing windows open on demand
  * so a first-time visitor is not faced with a wall of numbers.
  */
-export function SitePanel({ analysis, time }: SitePanelProps) {
+export function SitePanel({ analysis, score, time }: SitePanelProps) {
   const t = useT();
   const lang = useNavigator((s) => s.lang);
   const site = useNavigator((s) => s.site);
@@ -94,17 +129,25 @@ export function SitePanel({ analysis, time }: SitePanelProps) {
           body={state.earth}
           nextChange={analysis.nextEarthChange}
           time={time}
-          detail={t('kmAway', { km: Math.round(state.earth.distanceKm).toLocaleString('en-US') })}
+          detail={
+            state.earth.visibleFraction >= UP_SHARE
+              ? analysis.linkNow >= 0
+                ? t('link.via', { s: DSN_STATIONS[analysis.linkNow].name })
+                : t('link.noStation')
+              : t('kmAway', { km: Math.round(state.earth.distanceKm).toLocaleString('en-US') })
+          }
         />
       </div>
 
       <HorizonChart profile={profile} timeline={timeline} state={state} lat={site.lat} />
 
+      <ScoreCard view={score} />
+
       <div className="month" data-tour="month">
         <div className="month__summary">
           <span><b>{formatPercent(summary.sunlitShare)}</b> {t('sunlight')}</span>
           <span><b>{formatPercent(summary.earthShare)}</b> {t('earthView')}</span>
-          <span><b>{formatPercent(summary.bothShare)}</b> {t('both')}</span>
+          <span><b>{formatPercent(analysis.powerLinkShare)}</b> {t('powerLink')}</span>
         </div>
         <div className="month__actions">
           <button type="button" className="link-button" aria-expanded={showDetails} onClick={() => setShowDetails(!showDetails)}>

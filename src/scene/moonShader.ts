@@ -316,6 +316,19 @@ const terrainData = /* glsl */ `
     return h;
   }
 
+  /** Ground distance between height samples for the slope map: 300 m, as in lib/slope.ts. */
+  const float SLOPE_STEP_RAD = 300.0 / MOON_RADIUS_M;
+
+  /** Steepest regional slope at a point, degrees, from central differences east and north. */
+  float slopeDegAt(vec3 up) {
+    vec3 east;
+    vec3 north;
+    localAxes(up, east, north);
+    float dE = terrainHeight(normalize(up + east * SLOPE_STEP_RAD)) - terrainHeight(normalize(up - east * SLOPE_STEP_RAD));
+    float dN = terrainHeight(normalize(up + north * SLOPE_STEP_RAD)) - terrainHeight(normalize(up - north * SLOPE_STEP_RAD));
+    return degrees(atan(length(vec2(dE, dN)) / (2.0 * SLOPE_STEP_RAD * MOON_RADIUS_M)));
+  }
+
   /** The single finest source covering the point (no blending): cheap enough for shadow marching. */
   float terrainHeightFast(vec3 up) {
     vec2 xy;
@@ -485,7 +498,14 @@ const terrainFragment = /* glsl */ `
     vec3 tangentNormal;
     surface(up, albedo, tangentNormal);
     vec3 color = shade(up, tangentNormal, albedo, sunVisibility(up), vWorldPos);
-    if (layerMode > 0.5 && toMoonFixed(up).z < 0.0) {
+    if (layerMode > 2.5) {
+      // Self-lit hazard map, readable in shadow too: green safe, amber marginal, red too steep.
+      float s = slopeDegAt(up);
+      vec3 tint = mix(vec3(0.25, 0.8, 0.45), vec3(1.0, 0.71, 0.28), smoothstep(6.5, 9.5, s));
+      tint = mix(tint, vec3(0.95, 0.27, 0.22), smoothstep(13.0, 17.0, s));
+      // Safe ground only gets a light wash; the steep places, the ones to avoid, stand out.
+      color = mix(color, tint * 0.9, mix(0.22, 0.6, smoothstep(6.5, 15.0, s)));
+    } else if (layerMode > 0.5 && toMoonFixed(up).z < 0.0) {
       vec2 luv = polarPlane(up) / (2.0 * innerRhoMax) + 0.5;
       // Only inside the map: outside it clamp-to-edge would smear the border texels into streaks
       // running out to the limb. B is the coverage mask, so it also fades the overlay's rim softly.

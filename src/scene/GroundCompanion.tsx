@@ -76,6 +76,7 @@ const VIEW_UP = 0.24;
 /** Where she heads when the camera has turned away from her. */
 const FOLLOW_SIDE = -0.21;
 const FOLLOW_RATE = 2.5;
+const WIDE_ASPECT = 1.85;
 const MOUTH_REST = 0.03;
 const MOUTH_OPEN = 0.05;
 const MOUTH_TALK_PER_S = 11;
@@ -160,10 +161,12 @@ export function GroundCompanion({ lat, lon, sky, companion }: Props) {
     // Turn away from her and she comes along, so she and her words stay in view.
     if (companion.progress >= 1) {
       const ahead = companion.dir.dot(forwardOf);
+      // On a narrow screen there is less room to each side, so she keeps closer to the middle.
+      const room = camera instanceof PerspectiveCamera ? Math.min(1, camera.aspect / WIDE_ASPECT) : 1;
       const side = companion.dir.dot(rightOf) / Math.max(ahead, 1e-3);
       const lift = companion.dir.dot(screenUpOf) / Math.max(ahead, 1e-3);
-      if (ahead <= 0 || side < VIEW_LEFT || side > VIEW_RIGHT || Math.abs(lift) > VIEW_UP) {
-        followTo.copy(forwardOf).addScaledVector(rightOf, FOLLOW_SIDE).normalize();
+      if (ahead <= 0 || side < VIEW_LEFT * room || side > VIEW_RIGHT * room || Math.abs(lift) > VIEW_UP) {
+        followTo.copy(forwardOf).addScaledVector(rightOf, FOLLOW_SIDE * room).normalize();
         companion.dir.lerp(followTo, 1 - Math.exp(-delta * FOLLOW_RATE)).normalize();
       }
     }

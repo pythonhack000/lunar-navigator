@@ -12,6 +12,7 @@ import { Assistant } from './ui/Assistant';
 import { useLangScramble } from './ui/useLangScramble';
 import { CameraStatus } from './ui/CameraStatus';
 import { LoadingBar } from './ui/LoadingBar';
+import { MobileTabs } from './ui/MobileTabs';
 import { StartScreen } from './ui/StartScreen';
 import { ComparePanel } from './ui/ComparePanel';
 import { SceneErrorBoundary } from './ui/SceneErrorBoundary';
@@ -39,6 +40,7 @@ function Navigator({ loaded }: Props) {
   const setValidationOpen = useNavigator((s) => s.setValidationOpen);
   const closeValidation = useCallback(() => setValidationOpen(false), [setValidationOpen]);
   const lang = useNavigator((s) => s.lang);
+  const mobileTab = useNavigator((s) => s.mobileTab);
   useLangScramble();
   const handlePick = useCallback(
     (lat: number, lon: number) => selectSite({ id: null, name: '', kind: 'custom', lat, lon }),
@@ -46,7 +48,7 @@ function Navigator({ loaded }: Props) {
   );
 
   return (
-    <div className={isGroundView ? 'app is-ground' : 'app'}>
+    <div className={isGroundView ? 'app is-ground' : 'app'} data-tab={mobileTab}>
       <div className="stage">
         <SceneErrorBoundary>
           <MoonScene
@@ -78,6 +80,7 @@ function Navigator({ loaded }: Props) {
           <TimeControls />
           <TimelineBar timeline={analysis.timeline} link={analysis.link} time={time} onSeek={setTime} />
         </footer>
+        <MobileTabs />
       </div>
     </div>
   );

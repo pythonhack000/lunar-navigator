@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useT } from '../i18n';
 import { useNavigator } from '../state/store';
+import { GROUND_QUESTIONS, groundQuestionLabel } from './groundLines';
 
 /** Controls while standing at the site: look at the Sun or Earth, or go back up to orbit. */
 export function GroundHud() {
@@ -8,6 +9,9 @@ export function GroundHud() {
   const isGroundView = useNavigator((s) => s.isGroundView);
   const lookFromGround = useNavigator((s) => s.lookFromGround);
   const exitGroundView = useNavigator((s) => s.exitGroundView);
+  const isMenuOpen = useNavigator((s) => s.isGroundMenuOpen);
+  const isTouring = useNavigator((s) => s.isTouring);
+  const lang = useNavigator((s) => s.lang);
 
   useEffect(() => {
     if (!isGroundView) return;
@@ -34,6 +38,13 @@ export function GroundHud() {
         <button type="button" className="primary-button" onClick={exitGroundView}>{t('ground.exit')}</button>
       </div>
       <span className="muted ground-hud__hint">{t('ground.hint')}</span>
+      {isMenuOpen && !isTouring && (
+        <div className="ground-sheet-menu">
+          {GROUND_QUESTIONS.map((key) => (
+            <button key={key} type="button" onClick={() => useNavigator.getState().askOnGround(key)}>{groundQuestionLabel(key, lang)}</button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

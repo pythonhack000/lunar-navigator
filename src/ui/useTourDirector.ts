@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PowerConfig } from '../lib/power';
-import { useNavigator, type MapLayer, type PlaybackSpeed, type ReliefScale, type Scenario } from '../state/store';
+import { useNavigator, type MapLayer, type MobileTab, type PlaybackSpeed, type ReliefScale, type Scenario } from '../state/store';
 import { beatMs, type TourBeat, type TourRun, type TourStep } from './tourScript';
 
 /** The ring flashes for this long before LUNA presses, so the visitor sees what gets clicked. */
@@ -49,6 +49,12 @@ function rewindClock(to: number, onDone: () => void): () => void {
   };
   frame = requestAnimationFrame(tick);
   return () => cancelAnimationFrame(frame);
+}
+
+/** Which phone tab holds what a beat lights up. */
+function tabFor(spot: string | null): MobileTab {
+  if (spot?.includes('"sites"')) return 'list';
+  return spot?.includes('"timeline"') ? 'time' : 'site';
 }
 
 function press(selector: string): void {
@@ -130,6 +136,7 @@ export function useTourDirector(tour: readonly TourStep[], onFinish: () => void)
   useEffect(() => {
     if (!beat) return;
     remaining.current = beatMs(beat);
+    useNavigator.getState().setMobileTab(tabFor(beat.spot));
     const speed = beat.run ? RUN_SPEED[beat.run] : undefined;
     if (speed) {
       const store = useNavigator.getState();

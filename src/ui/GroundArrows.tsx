@@ -8,13 +8,18 @@ type Body = 'sun' | 'earth';
 const BODIES: readonly Body[] = ['sun', 'earth'];
 /** Space kept clear for the toolbar on top, the panel on the right and the timeline below. */
 const INSET = { left: 90, top: 150, right: 470, bottom: 250 };
-const NARROW_RIGHT = 90;
+const NARROW_INSET_X = 56;
+const NARROW_INSET_TOP = 70;
+const NARROW_INSET_BOTTOM = 24;
 const NARROW_WIDTH = 960;
 const MIN_DIRECTION = 0.001;
 
 function frameBox(): Box {
-  const right = window.innerWidth > NARROW_WIDTH ? INSET.right : NARROW_RIGHT;
-  return { left: INSET.left, top: INSET.top, right: window.innerWidth - right, bottom: window.innerHeight - INSET.bottom };
+  if (window.innerWidth <= NARROW_WIDTH) {
+    const stage = document.querySelector('.stage')?.getBoundingClientRect();
+    if (stage) return { left: stage.left + NARROW_INSET_X, top: stage.top + NARROW_INSET_TOP, right: stage.right - NARROW_INSET_X, bottom: stage.bottom - NARROW_INSET_BOTTOM };
+  }
+  return { left: INSET.left, top: INSET.top, right: window.innerWidth - INSET.right, bottom: window.innerHeight - INSET.bottom };
 }
 
 /**

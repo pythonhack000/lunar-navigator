@@ -94,6 +94,10 @@ function placeBot(target: Box | null, holder: Box | null, panel: Box | null): Bo
  */
 export function TourGuide({ selector, isSoft = false, mood, isPressing = false, onBotClick }: Props) {
   const isOnSurface = useNavigator((s) => s.isCompanion3D || s.isGroundView);
+  // What she points at may sit further down a scrolling panel, as it does on a phone.
+  useEffect(() => {
+    if (selector) document.querySelector(selector)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selector]);
   const target = useBox(selector);
   const holder = useBox(selector, holderOf);
   const panel = useBox('.luna-panel');

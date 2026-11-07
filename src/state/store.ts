@@ -22,6 +22,9 @@ export interface Scenario extends SelectedSite {
 /** The windows opened from the site panel; LUNA's tour opens them too. */
 export type ToolName = 'windows' | 'energy' | 'whatIf';
 
+/** The part shown under the Moon on a phone. */
+export type MobileTab = 'site' | 'time' | 'list';
+
 export type GroundQuestionKey = 'explain' | 'sun' | 'earth' | 'power' | 'moon';
 
 export type PlaybackSpeed = 1 | 6 | 24;
@@ -63,6 +66,8 @@ interface NavigatorState {
   /** False until the detailed polar elevation grids replace the coarse first ones. */
   isTerrainDetailed: boolean;
   setTerrainDetailed: () => void;
+  mobileTab: MobileTab;
+  setMobileTab: (tab: MobileTab) => void;
   openTool: ToolName | null;
   setOpenTool: (tool: ToolName | null) => void;
   /** The solar array and load behind every power figure. */
@@ -170,6 +175,8 @@ export const useNavigator = create<NavigatorState>((set) => ({
   compare: shared.compare.map((place) => ({ ...placeFromLink(place), ...(place.at === undefined ? {} : { at: place.at }) })),
   isTerrainDetailed: false,
   setTerrainDetailed: () => set({ isTerrainDetailed: true }),
+  mobileTab: 'site',
+  setMobileTab: (mobileTab) => set({ mobileTab }),
   openTool: null,
   setOpenTool: (openTool) => set({ openTool }),
   power: DEFAULT_POWER,

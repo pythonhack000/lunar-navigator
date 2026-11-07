@@ -41,6 +41,7 @@ interface Message {
 
 const SEEN_KEY = 'luna-tour-seen';
 const VOICE_KEY = 'luna-voice';
+const STAGE_SPOT = /layer-|relief|look-|ground-arrows/;
 /** While her panel is on the left, the site list under it steps aside so their texts never mix. */
 const LEFT_PANEL_CLASS = 'luna-on-left';
 /** How long LUNA is pleased about being clicked. */
@@ -291,7 +292,9 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
   const panelClass = step || isPlaying ? 'panel luna-panel is-tour' : 'panel luna-panel';
   const isOnLeft = isPlaying || (director.isActive && !beat?.panelRight);
   const isOutOfSight = (isGroundView || isCompanion3D) && !isGuiding;
-  const rootClass = ['luna', landed && 'is-arrived', director.isActive && 'is-touring', isOnLeft && 'is-left', isOutOfSight && 'is-hidden'].filter(Boolean).join(' ');
+  // On a phone her panel sits over the Moon while the part below is shown, and below while the Moon is.
+  const isShowingStage = director.isActive && (!beat?.spot || STAGE_SPOT.test(beat.spot));
+  const rootClass = ['luna', isShowingStage && 'is-over-sheet', landed && 'is-arrived', director.isActive && 'is-touring', isOnLeft && 'is-left', isOutOfSight && 'is-hidden'].filter(Boolean).join(' ');
 
   return createPortal(
     <div className={rootClass} data-open={isOpen}>

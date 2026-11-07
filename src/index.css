@@ -888,3 +888,81 @@ body.luna-on-left .site-picker { visibility: hidden; }
 .ground-menu button:hover { border-color: var(--sun); color: var(--sun); }
 /* The click area over 3D LUNA: invisible, about the size she appears */
 .ground-tap { display: block; width: 170px; height: 190px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+
+/* ------- Phones: the Moon on top, one tab below ------- */
+.mobile-tabs, .ground-sheet-menu { display: none; }
+@media (max-width: 960px) {
+  .app { position: fixed; inset: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .stage { position: relative; top: auto; flex: none; height: 42dvh; }
+  .app.is-ground .stage { height: 58dvh; }
+  .hud { flex: 1; min-height: 0; display: block; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 10px 66px; gap: 0; background: var(--bg); }
+  .hud > * + * { margin-top: 10px; }
+  .brand { display: none; }
+  .app[data-tab='site'] .dock, .app[data-tab='site'] .site-picker { display: none; }
+  .app[data-tab='time'] .site-panel, .app[data-tab='time'] .compare, .app[data-tab='time'] .site-picker { display: none; }
+  .app[data-tab='list'] .site-panel, .app[data-tab='list'] .compare, .app[data-tab='list'] .dock { display: none; }
+  .app[data-tab='list'] .site-picker { display: flex; visibility: visible; }
+  .site-list { max-height: none; }
+
+  .mobile-tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: repeat(3, 1fr);
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); gap: 6px; background: #0b0c0f; border-top: 1px solid var(--line-strong);
+  }
+  .mobile-tabs button { min-height: 42px; border: 0; border-radius: 10px; background: none; color: var(--muted); font: 600 14px var(--font); cursor: pointer; }
+  .mobile-tabs button.is-active { background: var(--sun-soft); color: var(--sun); }
+
+  /* Compact controls over the Moon */
+  .stage-controls { top: 8px; left: 8px; right: 8px; width: auto; transform: none; }
+  .stage-controls__row { gap: 5px; }
+  .altitude-chip, .pill-group > span { display: none; }
+  .view-toggle { padding: 6px 10px; font-size: 12px; }
+  .pill-group { padding: 3px; }
+  .pill-group button { padding: 3px 8px; font-size: 12px; }
+  .layer-note { position: static; transform: none; margin-top: 4px; white-space: normal; font-size: 11px; border-radius: 10px; }
+  .loading-bar { top: 84px; }
+
+  /* The panel reads like the desktop one: two cards side by side, no extra row */
+  .readouts { grid-template-columns: 1fr 1fr; row-gap: 0; }
+  .readout { padding: 9px; }
+  .readout__grid { display: none; }
+  .readout__big { font-size: 21px; }
+  .readout__detail { white-space: normal; }
+  .site-panel__head h2 { font-size: 17px; }
+  .month__extremes { white-space: normal; }
+  .compare th, .compare td { padding: 5px 4px; }
+
+  /* LUNA: the launcher above the tabs, her panel over whichever part is not being shown */
+  .luna, .luna.is-arrived { top: auto; left: auto; right: 10px; bottom: 66px; flex-direction: column; align-items: flex-end; }
+  .luna-launcher { width: 58px; height: 64px; }
+  .luna-panel { width: calc(100vw - 20px); height: auto; max-height: 56dvh; }
+  .luna.is-touring, .luna.is-left { top: 8px; left: 8px; right: 8px; bottom: auto; align-items: stretch; }
+  .luna.is-over-sheet { top: auto; bottom: 66px; }
+  .luna-panel.is-tour { width: 100%; max-height: 40dvh; padding: 10px; gap: 6px; }
+  .luna-panel.is-tour .luna-head-row { display: none; }
+  .luna-panel .luna-tour p { font-size: 13px; line-height: 1.4; }
+  .game { font-size: 13px; gap: 6px; }
+  .game-look { display: none; }
+  .tour-bot, .tour-beam { display: none; }
+  body.tour-dialog .luna { left: 8px; right: 8px; }
+  body.tour-dialog .modal-backdrop { place-items: end stretch; padding: 42dvh 0 0; }
+  body.tour-dialog .tool-dialog, body.tour-dialog .calendar { width: 100%; max-height: 58dvh; }
+
+  /* Windows */
+  .modal-backdrop { padding: 8px; }
+  .tool-dialog, .calendar { max-height: calc(100dvh - 16px); }
+  .what-if-table th:nth-child(5), .what-if-table td:nth-child(5) { display: none; }
+
+  /* On the surface */
+  .app.is-ground .site-panel__actions { display: none; }
+  .ground-hud { top: 8px; left: 8px; right: 8px; transform: none; }
+  .ground-hud__title, .ground-hud__hint { display: none; }
+  .ground-hud__bar { justify-content: center; flex-wrap: wrap; padding: 4px; gap: 4px; }
+  .ground-hud button { padding: 5px 9px; font-size: 12px; }
+  .ground-arrow { padding: 5px 9px; font-size: 11.5px; }
+  .ground-talk { width: 250px; transform: translate(0, -50%); }
+  .ground-bubble { max-width: 250px; padding: 8px 11px; font-size: 12.5px; }
+  .ground-tap { width: 110px; height: 130px; }
+  .ground-menu { display: none; }
+  .ground-sheet-menu { position: fixed; left: 8px; right: 8px; top: calc(58dvh - 112px); display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+  .ground-sheet-menu button { padding: 6px 10px !important; border-radius: 99px; cursor: pointer; font: 500 12px var(--font); color: var(--text); background: rgba(10, 11, 14, 0.92); border: 1px solid var(--line-strong); }
+}

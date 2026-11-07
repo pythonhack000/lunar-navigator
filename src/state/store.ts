@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { DEFAULT_SITE_ID, SITES } from '../data/sites';
 import type { Lang } from '../i18n';
+import { DEFAULT_POWER, type PowerConfig } from '../lib/power';
+import { parseShareQuery, type SharedPlace } from '../lib/shareLink';
 
 export interface SelectedSite {
   /** Id of a named site, or null for a custom pin. */
@@ -10,6 +12,11 @@ export interface SelectedSite {
   lon: number;
   /** Unnamed places get their label from the current language instead of a stored name. */
   kind?: SiteKind;
+}
+
+/** A row of the comparison: a place and, optionally, its own landing date. */
+export interface Scenario extends SelectedSite {
+  at?: number;
 }
 
 export type PlaybackSpeed = 1 | 6 | 24;
@@ -47,7 +54,13 @@ interface NavigatorState {
   /** Simulated hours per real second. */
   speed: PlaybackSpeed;
   site: SelectedSite;
-  compare: readonly SelectedSite[];
+  compare: readonly Scenario[];
+  /** False until the detailed polar elevation grids replace the coarse first ones. */
+  isTerrainDetailed: boolean;
+  setTerrainDetailed: () => void;
+  /** The solar array and load behind every power figure. */
+  power: PowerConfig;
+  setPower: (power: PowerConfig) => void;
   /** True while the camera shows the whole Moon instead of hovering over the selected site. */
   isGlobeView: boolean;
   /** Bumped on every fly request, so asking again for the same view still flies the camera. */
@@ -95,21 +108,43 @@ interface NavigatorState {
   setSpeed: (speed: PlaybackSpeed) => void;
   selectSite: (site: SelectedSite) => void;
   toggleCompare: (site: SelectedSite) => void;
+  /** Adds the place with its own landing date, unless that exact row exists or the list is full. */
+  addScenario: (site: SelectedSite, at: number) => void;
+  removeScenario: (key: string) => void;
+  setScenarioDate: (key: string, at: number) => void;
 }
 
 export const MAX_COMPARE = 4;
 
 export const siteKey = (s: SelectedSite): string => `${s.lat.toFixed(3)},${s.lon.toFixed(3)}`;
+export const scenarioKey = (s: Scenario): string => `${siteKey(s)}@${s.at ?? ''}`;
 
 const defaultSite = SITES.find((s) => s.id === DEFAULT_SITE_ID) ?? SITES[0];
 const startOfHour = (t: number) => Math.floor(t / 3_600_000) * 3_600_000;
 
+/** A place from a shared link: a known site by its id (if it really sits there), else a scout point. */
+function placeFromLink(place: SharedPlace): SelectedSite {
+  const named = place.id ? SITES.find((s) => s.id === place.id && s.lat === place.lat && s.lon === place.lon) : undefined;
+  if (named) return { id: named.id, name: named.name, lat: named.lat, lon: named.lon };
+  return { id: null, name: '', kind: 'custom', lat: place.lat, lon: place.lon };
+}
+
+const shared = typeof window === 'undefined' ? { compare: [] } : parseShareQuery(window.location.search);
+
+const placeWithoutDate = ({ id, name, lat, lon, kind }: Scenario): SelectedSite => ({ id, name, lat, lon, ...(kind ? { kind } : {}) });
+
+export { placeWithoutDate };
+
 export const useNavigator = create<NavigatorState>((set) => ({
-  time: startOfHour(Date.now()),
+  time: shared.time ?? startOfHour(Date.now()),
   playing: false,
   speed: 6,
-  site: { id: defaultSite.id, name: defaultSite.name, lat: defaultSite.lat, lon: defaultSite.lon },
-  compare: [],
+  site: shared.site ? placeFromLink(shared.site) : { id: defaultSite.id, name: defaultSite.name, lat: defaultSite.lat, lon: defaultSite.lon },
+  compare: shared.compare.map((place) => ({ ...placeFromLink(place), ...(place.at === undefined ? {} : { at: place.at }) })),
+  isTerrainDetailed: false,
+  setTerrainDetailed: () => set({ isTerrainDetailed: true }),
+  power: DEFAULT_POWER,
+  setPower: (power) => set({ power }),
   isGlobeView: false,
   flyNonce: 0,
   cameraAltitudeKm: 4000,
@@ -158,6 +193,14 @@ export const useNavigator = create<NavigatorState>((set) => ({
       if (state.compare.length >= MAX_COMPARE) return state;
       return { compare: [...state.compare, site] };
     }),
+  addScenario: (site, at) =>
+    set((state) => {
+      const row: Scenario = { ...placeWithoutDate(site), at };
+      if (state.compare.length >= MAX_COMPARE || state.compare.some((s) => scenarioKey(s) === scenarioKey(row))) return state;
+      return { compare: [...state.compare, row] };
+    }),
+  removeScenario: (key) => set((state) => ({ compare: state.compare.filter((s) => scenarioKey(s) !== key) })),
+  setScenarioDate: (key, at) => set((state) => ({ compare: state.compare.map((s) => (scenarioKey(s) === key ? { ...s, at } : s)) })),
 }));
 
 /** Resolves as soon as the store satisfies `isReady` (at once if it already does). */

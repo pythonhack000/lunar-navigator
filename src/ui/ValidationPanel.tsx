@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import horizonsReference from '../data/horizonsReference.json';
 import { SITES } from '../data/sites';
 import { siteLabel, useT } from '../i18n';
-import { formatLatLon, formatPercent } from '../lib/format';
+import { formatDeg, formatLatLon, formatPercent } from '../lib/format';
+import { compareWithHorizons } from '../lib/horizonsCheck';
 import type { Terrain } from '../lib/terrain';
 import { combineYears, CYCLE_YEARS, illuminationOverYear, ourValue, quickYear, REFERENCES, searchPoints, yearStart, type Reference, type YearResult } from '../lib/validation';
 import { useNavigator } from '../state/store';
@@ -39,6 +41,11 @@ export function ValidationPanel({ terrain, onClose }: Props) {
   const t = useT();
   const lang = useNavigator((s) => s.lang);
   const [results, setResults] = useState<Partial<Record<Reference['siteId'], Checked>>>({});
+  const ephemeris = useMemo(() => compareWithHorizons(horizonsReference.samples), []);
+  const bodies = [
+    { label: t('sun'), error: ephemeris.sun },
+    { label: t('earth'), error: ephemeris.earth },
+  ];
 
   useEffect(() => {
     let alive = true;
@@ -123,6 +130,26 @@ export function ValidationPanel({ terrain, onClose }: Props) {
           </tbody>
         </table>
         <p className="muted validation__note">{t('val.note')}</p>
+        <h3 className="validation__heading">{t('val.ephemeris')}</h3>
+        <p className="muted validation__note">{t('val.ephemerisBody', { rows: ephemeris.rows })}</p>
+        <table className="validation__table">
+          <thead>
+            <tr>
+              <th scope="col">{t('val.body')}</th>
+              <th scope="col">{t('val.meanError')}</th>
+              <th scope="col">{t('val.maxError')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {bodies.map((b) => (
+              <tr key={b.label}>
+                <th scope="row">{b.label}</th>
+                <td className="mono">{formatDeg(b.error.meanDeg, 3)}</td>
+                <td className="mono">{formatDeg(b.error.maxDeg, 3)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
     </div>,
     document.body,

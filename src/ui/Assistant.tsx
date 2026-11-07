@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { SITES } from '../data/sites';
+import { SITES, uniquePlaces } from '../data/sites';
 import { WINDOW_MS, type SiteAnalysis } from '../hooks/useSiteAnalysis';
 import type { SiteScoreView } from '../hooks/useSiteScore';
 import { formatLatLon, formatPercent, HOUR_MS } from '../lib/format';
@@ -9,7 +9,8 @@ import { rankSitesAsync, type RankedSite, type RankGoal } from '../lib/ranking';
 import type { Terrain } from '../lib/terrain';
 import { siteLabel } from '../i18n';
 import { MAX_COMPARE, useNavigator, type SelectedSite } from '../state/store';
-import { assistantText, describeRanking, explainSite, tourFor } from './assistantScript';
+import { assistantText, describeRanking, explainSite, moonVsEarth, tourFor } from './assistantScript';
+import { LunaQuiz } from './LunaQuiz';
 
 type Props = {
   analysis: SiteAnalysis;
@@ -158,6 +159,7 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
   const [messages, setMessages] = useState<Message[]>([]);
   const [isThinking, setThinking] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [isPlaying, setPlaying] = useState(false);
   const [hasVoice, setVoice] = useState(() => readFlag(VOICE_KEY));
   const nextId = useRef(1);
   const listRef = useRef<HTMLDivElement>(null);
@@ -221,7 +223,7 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
     say('user', [label]);
     setThinking(true);
     try {
-      const pool = SITES.filter((s) => (artemisOnly ? s.group === 'Artemis III' : s.group !== 'Apollo'));
+      const pool = uniquePlaces(SITES.filter((s) => (artemisOnly ? s.group === 'Artemis' : s.group !== 'Apollo')));
       const ranked = await rankSitesAsync(pool, terrain, windowStart, goal, WINDOW_MS, RANK_STEP_MS);
       say('luna', [describeRanking(goal, ranked, lang)], ranked.slice(0, 3));
     } catch {
@@ -302,6 +304,8 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
                 </button>
               </div>
             </div>
+          ) : isPlaying ? (
+            <LunaQuiz terrain={terrain} windowStart={windowStart} onClose={() => setPlaying(false)} />
           ) : (
             <>
               <div className="luna-messages" ref={listRef}>
@@ -353,6 +357,8 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
                 <button type="button" onClick={() => setTourStep(0)}>{text.tour}</button>
                 {showMore && (
                   <>
+                    <button type="button" onClick={() => setPlaying(true)}>{text.game}</button>
+                    <button type="button" onClick={() => { say('user', [text.moonVsEarth]); say('luna', moonVsEarth(analysis, lang)); }}>{text.moonVsEarth}</button>
                     <button type="button" disabled={isThinking} onClick={() => void rank('both', text.artemis, true)}>{text.artemis}</button>
                     {(['power', 'comms', 'both'] as const).map((g) => (
                       <button key={g} type="button" disabled={isThinking} onClick={() => void rank(g, text.goals[g], false)}>{text.goals[g]}</button>

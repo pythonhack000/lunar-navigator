@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { siteLabel, useT, type StringKey } from '../i18n';
 import { DAY_MS, formatHours, formatPercent, fromDateTimeInput, HOUR_MS, toDateTimeInput } from '../lib/format';
 import { computeHorizon } from '../lib/horizon';
+import { powerSeries, simulateEnergy, type PowerConfig } from '../lib/power';
 import type { Terrain } from '../lib/terrain';
 import { sampleTimeline, summarizeTimeline, type TimelineSummary } from '../lib/visibility';
-import { siteKey, useNavigator, type SelectedSite } from '../state/store';
+import { MAX_COMPARE, placeWithoutDate, scenarioKey, siteKey, useNavigator, type Scenario } from '../state/store';
 
 interface ComparePanelProps {
   terrain: Terrain;
@@ -16,43 +17,57 @@ type Period = 'week' | 'month' | 'quarter' | 'custom';
 const PERIOD_DAYS: Record<Exclude<Period, 'custom'>, number> = { week: 7, month: 29.53, quarter: 90 };
 /** Long spans use a coarser step: whole-month shares barely change, and it keeps comparing instant. */
 const LONG_SPAN_DAYS = 45;
+/** The delays a schedule slip usually comes in. */
+const SLIP_DAYS = [1, 7, 30] as const;
 
-type Metric = { key: keyof TimelineSummary; label: StringKey; better: 'high' | 'low'; isDuration?: boolean };
+interface RowValues extends TimelineSummary {
+  energyKWh: number;
+}
+
+type Metric = { key: keyof RowValues; label: StringKey; better: 'high' | 'low'; kind: 'share' | 'duration' | 'energy' };
 
 const METRICS: Metric[] = [
-  { key: 'sunlitShare', label: 'sunlight', better: 'high' },
-  { key: 'earthShare', label: 'compare.earth', better: 'high' },
-  { key: 'bothShare', label: 'compare.both', better: 'high' },
-  { key: 'longestDarkHours', label: 'night', better: 'low', isDuration: true },
+  { key: 'sunlitShare', label: 'sunlight', better: 'high', kind: 'share' },
+  { key: 'energyKWh', label: 'compare.energy', better: 'high', kind: 'energy' },
+  { key: 'earthShare', label: 'compare.earth', better: 'high', kind: 'share' },
+  { key: 'bothShare', label: 'compare.both', better: 'high', kind: 'share' },
+  { key: 'longestDarkHours', label: 'night', better: 'low', kind: 'duration' },
 ];
 
-function summarize(terrain: Terrain, site: SelectedSite, start: number, spanMs: number): TimelineSummary {
+function analyze(terrain: Terrain, site: Scenario, start: number, spanMs: number, power: PowerConfig): RowValues {
   const profile = computeHorizon(terrain, site.lat, site.lon);
   const step = spanMs > LONG_SPAN_DAYS * DAY_MS ? 3 * HOUR_MS : HOUR_MS;
   const timeline = sampleTimeline({ lat: site.lat, lon: site.lon, heightM: profile.siteHeightM }, profile, start, spanMs, step);
-  return summarizeTimeline(timeline);
+  const series = powerSeries(power, site.lat, timeline.sunElevation, timeline.sun);
+  return { ...summarizeTimeline(timeline), energyKWh: simulateEnergy(series, step / HOUR_MS, power).generatedKWh };
 }
 
 const dateOnly = (time: number) => toDateTimeInput(time).slice(0, 10);
+const startOfDay = (time: number) => Math.floor(time / DAY_MS) * DAY_MS;
 
 /**
- * Side-by-side comparison of the selected site and the ones added with "+ Compare", over a period
- * the user picks. Bars make the winner obvious at a glance; the best value in each column glows.
+ * Side-by-side comparison of scenarios, each a place and optionally its own landing date, so "this
+ * site or that one" and "this month or next" are the same question. Bars make the winner obvious at
+ * a glance; the best value in each column glows.
  */
 export function ComparePanel({ terrain, windowStart }: ComparePanelProps) {
   const t = useT();
   const lang = useNavigator((s) => s.lang);
   const site = useNavigator((s) => s.site);
   const compare = useNavigator((s) => s.compare);
+  const power = useNavigator((s) => s.power);
   const selectSite = useNavigator((s) => s.selectSite);
-  const toggleCompare = useNavigator((s) => s.toggleCompare);
+  const setTime = useNavigator((s) => s.setTime);
+  const addScenario = useNavigator((s) => s.addScenario);
+  const removeScenario = useNavigator((s) => s.removeScenario);
+  const setScenarioDate = useNavigator((s) => s.setScenarioDate);
   const [period, setPeriod] = useState<Period>('month');
   const [customFrom, setCustomFrom] = useState(() => dateOnly(windowStart + 2 * DAY_MS));
   const [customTo, setCustomTo] = useState(() => dateOnly(windowStart + 16 * DAY_MS));
 
-  const sites = useMemo(() => {
-    const current = compare.some((c) => siteKey(c) === siteKey(site));
-    return current ? compare : [site, ...compare];
+  const scenarios = useMemo<Scenario[]>(() => {
+    const isCurrentListed = compare.some((c) => siteKey(c) === siteKey(site));
+    return isCurrentListed ? [...compare] : [site, ...compare];
   }, [compare, site]);
 
   const [start, span] = useMemo((): [number, number] => {
@@ -62,20 +77,43 @@ export function ComparePanel({ terrain, windowStart }: ComparePanelProps) {
     return [Math.min(from, to), Math.max(DAY_MS, Math.abs(to - from))];
   }, [period, windowStart, customFrom, customTo]);
 
-  const rows = useMemo(() => sites.map((s) => ({ site: s, summary: summarize(terrain, s, start, span) })), [sites, terrain, start, span]);
+  const rows = useMemo(
+    () => scenarios.map((s) => ({ scenario: s, values: analyze(terrain, s, s.at ?? start, span, power) })),
+    [scenarios, terrain, start, span, power],
+  );
 
   if (compare.length === 0) return null;
   const currentKey = siteKey(site);
-  const show = (m: Metric, v: number) => (m.isDuration ? (v > 0 ? formatHours(v, lang) : '—') : formatPercent(v));
+  const show = (m: Metric, v: number) => {
+    if (m.kind === 'share') return formatPercent(v);
+    if (m.kind === 'energy') return v.toFixed(1);
+    return v > 0 ? formatHours(v, lang) : '—';
+  };
   const extremes = METRICS.map((m) => {
-    const values = rows.map((r) => r.summary[m.key]);
+    const values = rows.map((r) => r.values[m.key]);
     return { best: m.better === 'high' ? Math.max(...values) : Math.min(...values), max: Math.max(...values, 1e-9) };
   });
 
+  const latestForSite = Math.max(...scenarios.filter((s) => siteKey(s) === currentKey).map((s) => s.at ?? start), start);
+  const slip = (days: number) => addScenario(site, startOfDay(latestForSite) + days * DAY_MS);
+
+  const changeDate = (scenario: Scenario, value: string) => {
+    const at = fromDateTimeInput(`${value}T00:00`);
+    if (at === null) return;
+    const isListed = compare.some((c) => scenarioKey(c) === scenarioKey(scenario));
+    if (isListed) setScenarioDate(scenarioKey(scenario), at);
+    else addScenario(scenario, at);
+  };
+
+  const open = (scenario: Scenario) => {
+    selectSite(placeWithoutDate(scenario));
+    if (scenario.at !== undefined) setTime(scenario.at);
+  };
+
   return (
-    <section className="panel compare" aria-label={t('compare.title')}>
+    <section className="panel compare" aria-label={t('compare.titleScenarios')}>
       <header className="compare__head">
-        <h3>{t('compare.title')}</h3>
+        <h3>{t('compare.titleScenarios')}</h3>
         <div className="segmented compare__periods" role="group" aria-label={t('compare.period')}>
           {(['week', 'month', 'quarter', 'custom'] as const).map((p) => (
             <button key={p} type="button" className={p === period ? 'is-active' : undefined} aria-pressed={p === period} onClick={() => setPeriod(p)}>
@@ -100,15 +138,23 @@ export function ComparePanel({ terrain, windowStart }: ComparePanelProps) {
         </thead>
         <tbody>
           {rows.map((r) => {
-            const key = siteKey(r.site);
-            const listed = compare.some((c) => siteKey(c) === key);
+            const key = scenarioKey(r.scenario);
+            const isListed = compare.some((c) => scenarioKey(c) === key);
+            const label = siteLabel(r.scenario, lang);
             return (
-              <tr key={key} className={key === currentKey ? 'is-current' : undefined}>
+              <tr key={key} className={siteKey(r.scenario) === currentKey ? 'is-current' : undefined}>
                 <th scope="row">
-                  <button type="button" className="link-button" onClick={() => selectSite(r.site)}>{siteLabel(r.site, lang)}</button>
+                  <button type="button" className="link-button" onClick={() => open(r.scenario)}>{label}</button>
+                  <input
+                    className="compare__date"
+                    type="date"
+                    aria-label={t('compare.landing', { name: label })}
+                    value={dateOnly(r.scenario.at ?? start)}
+                    onChange={(e) => changeDate(r.scenario, e.target.value)}
+                  />
                 </th>
                 {METRICS.map((m, i) => {
-                  const v = r.summary[m.key];
+                  const v = r.values[m.key];
                   const isBest = rows.length > 1 && v === extremes[i].best;
                   return (
                     <td key={m.key} className={isBest ? 'is-best' : undefined}>
@@ -118,8 +164,8 @@ export function ComparePanel({ terrain, windowStart }: ComparePanelProps) {
                   );
                 })}
                 <td>
-                  {listed && (
-                    <button type="button" className="icon-button" aria-label={t('compare.remove', { name: siteLabel(r.site, lang) })} onClick={() => toggleCompare(r.site)}>
+                  {isListed && (
+                    <button type="button" className="icon-button" aria-label={t('compare.remove', { name: label })} onClick={() => removeScenario(key)}>
                       ×
                     </button>
                   )}
@@ -129,6 +175,14 @@ export function ComparePanel({ terrain, windowStart }: ComparePanelProps) {
           })}
         </tbody>
       </table>
+      <div className="compare__slips" role="group" aria-label={t('compare.delay')}>
+        <span className="muted">{t('compare.delay')}</span>
+        <div className="segmented compare__periods">
+          {SLIP_DAYS.map((days) => (
+            <button key={days} type="button" disabled={compare.length >= MAX_COMPARE} onClick={() => slip(days)}>{t('whatIf.days', { n: days })}</button>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }

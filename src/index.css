@@ -576,3 +576,124 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
    the month summary and nothing ends up crammed against the edge or floating over a gap. */
 @media (min-width: 961px) { .site-panel { justify-content: space-evenly; } }
 .month__actions { margin-top: 12px; }
+
+/* Four tools in one row: icon over label, so the panel keeps its height. */
+.month__buttons { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.month__buttons button { flex-direction: column; gap: 3px; padding: 7px 2px; font-size: 11.5px; }
+
+/* Everything drawn with the Moon, site labels included, stays under the panels. */
+.stage { z-index: 0; }
+.site-panel__refining { font-size: 11.5px; color: var(--sun); margin-top: 2px; }
+.readout__detail { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Shorter screens: the tool buttons keep their labels and drop the icons, the chart its legend. */
+@media (min-width: 961px) and (max-height: 880px) {
+  .month__buttons .button-icon, .site-panel figcaption { display: none; }
+  .month__buttons button { padding: 6px 2px; }
+}
+
+/* Tool windows */
+.tool-dialog { width: min(560px, 100%); max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #0b0c0f; }
+.tool-dialog h2 { font-size: 17px; }
+.tool-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.tool-label { font-size: 12.5px; color: var(--muted); }
+.tool-note { font-size: 12px; line-height: 1.45; }
+.tool-body { font-size: 13.5px; line-height: 1.5; }
+.tool-verdict { font-size: 13px; font-weight: 600; line-height: 1.45; }
+.tool-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.tool-fields label span { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tool-fields input, .tool-inline input, .report-dialog__manual input {
+  width: 100%; padding: 6px 8px; font-family: var(--mono); font-size: 12.5px; outline: none;
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line-strong); border-radius: 9px;
+}
+.tool-fields input:focus, .tool-inline input:focus { border-color: var(--sun); }
+.tool-inline { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--muted); }
+.tool-inline input { width: 72px; color: var(--text); }
+.tool-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0; border-top: 1px solid var(--line); padding-top: 10px; }
+.tool-tiles dt { font-size: 11px; color: var(--muted); }
+.tool-tiles dd { margin: 2px 0 0; font: 600 14px var(--mono); }
+
+/* Small charts: one line, one axis, the exact value on hover */
+.mini-chart { margin: 0; }
+.mini-chart__head { display: flex; justify-content: space-between; gap: 10px; margin: 0 0 4px; font-size: 12px; color: var(--text); }
+.mini-chart__head .mono { font-size: 11.5px; }
+.mini-chart svg { width: 100%; height: 84px; display: block; cursor: crosshair; background: rgba(255, 255, 255, 0.02); border-radius: 6px; }
+.mini-chart__line { fill: none; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.mini-chart__line--sun { stroke: var(--sun); }
+.mini-chart__line--earth { stroke: var(--earth); }
+.mini-chart__reference { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.mini-chart__cursor { stroke: var(--text); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.mini-chart__note { font-size: 11px; margin-top: 3px; }
+
+/* What if */
+.what-if { width: min(620px, 100%); }
+.what-if-tabs button { flex: 1; }
+.what-if-charts { display: grid; gap: 12px; }
+.what-if-map { display: grid; gap: 2px; }
+.what-if-cell {
+  aspect-ratio: 1.5; border: 0; border-radius: 4px; padding: 0; cursor: pointer; color: var(--text);
+  font: 500 11px var(--mono); background: color-mix(in srgb, var(--sun) calc(var(--share) * 75%), #15171b);
+}
+.what-if-cell:disabled { cursor: progress; }
+.what-if-cell:hover:not(:disabled) { outline: 2px solid var(--text); outline-offset: -2px; }
+.what-if-cell.is-centre { outline: 2px solid #fff; outline-offset: -2px; font-weight: 700; }
+.what-if-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.what-if-table th, .what-if-table td { padding: 6px 6px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.what-if-table thead th { color: var(--faint); font-weight: 500; font-size: 11px; }
+.what-if-table th:first-child { text-align: left; font-weight: 500; }
+.what-if-table .link-button:hover { color: var(--sun); }
+.what-if-add { color: var(--sun); font-size: 12px; }
+.what-if-add:disabled { color: var(--faint); cursor: default; }
+
+/* Mission requirements beside the month, so neither needs scrolling */
+.calendar { width: min(860px, 100%); overflow-y: auto; }
+.calendar__body { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 14px; align-items: start; }
+.calendar__month { display: flex; flex-direction: column; gap: 8px; }
+.calendar__body .tool-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.calendar .day-cell { padding: 4px 6px; }
+@media (max-width: 960px) { .calendar__body { grid-template-columns: minmax(0, 1fr); } }
+.mission-filter { border: 1px solid var(--line); border-radius: 11px; padding: 10px 12px; }
+.mission-filter summary { cursor: pointer; font-size: 12.5px; font-weight: 600; }
+.mission-filter[open] summary { margin-bottom: 8px; }
+.mission-filter__summary { font-size: 12.5px; margin-top: 8px; }
+.mission-filter__list { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; font-size: 12px; }
+.mission-filter__list li { display: flex; justify-content: space-between; gap: 10px; }
+.mission-filter__list .link-button { color: var(--sun); }
+.day-cell.is-fit { position: relative; }
+.day-cell.is-fit::after { content: ''; position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: #fff; }
+.cal-key--fit::before { background: #fff; border-radius: 50%; }
+
+/* Comparison with dates */
+.compare__date {
+  display: block; margin-top: 3px; padding: 1px 4px; font: 11px var(--mono); color: var(--muted);
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); border-radius: 6px;
+}
+.compare__date:hover, .compare__date:focus { border-color: var(--sun); outline: none; }
+.compare__slips { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 8px; font-size: 12px; }
+.compare__slips button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Report and data */
+.report-dialog { width: min(440px, 100%); }
+.report-dialog__periods { display: flex; }
+.report-dialog__actions { display: flex; justify-content: flex-end; gap: 8px; }
+.report-dialog__actions button { padding: 8px 14px; }
+.report-dialog__share { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; font-size: 12px; }
+.report-dialog__share p { font-size: 12px; }
+.report-dialog__manual { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+
+/* Accuracy */
+.validation__heading { margin: 16px 0 0; color: var(--text); font-size: 13px; }
+
+/* LUNA's game */
+.luna-quiz { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; font-size: 13.5px; }
+.luna-quiz h3 { margin: 0; color: var(--text); font-size: 15px; }
+.luna-quiz__question { font-weight: 600; line-height: 1.45; }
+.luna-quiz__options { display: grid; gap: 6px; }
+.luna-quiz__options button { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; white-space: normal; text-align: left; }
+.luna-quiz__score { font: 600 20px var(--mono); color: var(--sun); }
+
+@media (max-width: 960px) {
+  .tool-fields, .tool-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .what-if-table th, .what-if-table td { padding: 5px 3px; font-size: 11.5px; }
+  .what-if-table thead th { white-space: normal; font-size: 10.5px; }
+  .what-if-cell { font-size: 10px; }
+}

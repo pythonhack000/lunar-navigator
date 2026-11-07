@@ -3,6 +3,7 @@ import { Bloom, EffectComposer, ToneMapping, Vignette } from '@react-three/postp
 import { ToneMappingMode } from 'postprocessing';
 import { memo, Suspense, useMemo } from 'react';
 import { PerspectiveCamera, Vector3 } from 'three';
+import { uniquePlaces } from '../data/sites';
 import { EARTH_RADIUS_KM, MOON_RADIUS_KM } from '../lib/ephemeris';
 import type { PolarTile, TileGridSpec } from '../lib/loadTerrain';
 import type { Terrain } from '../lib/terrain';
@@ -74,7 +75,7 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOute
     updateSky(s, useNavigator.getState().time);
     return s;
   }, []);
-  const others = compare.filter((c: SelectedSite) => siteKey(c) !== siteKey(site));
+  const others = uniquePlaces(compare).filter((c: SelectedSite) => siteKey(c) !== siteKey(site));
 
   return (
     <Canvas

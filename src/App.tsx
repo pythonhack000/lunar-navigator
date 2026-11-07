@@ -66,7 +66,7 @@ function Navigator({ loaded }: Props) {
           <p>{translate(lang, 'brand.subtitle')}</p>
         </header>
         <SitePicker />
-        <SitePanel analysis={analysis} score={score} time={time} />
+        <SitePanel analysis={analysis} score={score} terrain={loaded.terrain} time={time} />
         <ComparePanel terrain={loaded.terrain} windowStart={windowStartFor(time)} />
         <Assistant analysis={analysis} score={score} terrain={loaded.terrain} windowStart={windowStartFor(time)} polarRhoMax={loaded.manifest.polar.rhoMax} />
         {isValidationOpen && <ValidationPanel terrain={loaded.terrain} onClose={closeValidation} />}
@@ -104,7 +104,11 @@ export default function App() {
         // Moon nor jerks the descent; horizons then sharpen from the 4 px/° grid to LOLA's polar maps.
         whenNavigator((s) => s.landed)
           .then(refine)
-          .then((terrain) => !cancelled && setLoaded({ ...base, terrain }))
+          .then((terrain) => {
+            if (cancelled) return;
+            setLoaded({ ...base, terrain });
+            useNavigator.getState().setTerrainDetailed();
+          })
           .catch((e: unknown) => console.warn('Detailed terrain failed to load', e));
       })
       .catch((e: unknown) => !cancelled && setError(errorMessage(e)));

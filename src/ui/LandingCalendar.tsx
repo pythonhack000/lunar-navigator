@@ -2,14 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { SiteAnalysis } from '../hooks/useSiteAnalysis';
 import { siteLabel, useT } from '../i18n';
+import { sampleDsn } from '../lib/dsn';
 import { DAY_MS, HOUR_MS } from '../lib/format';
+import { DEFAULT_REQUIREMENTS, findWindows, missionSeries, type MissionRequirements } from '../lib/missionWindow';
 import { sampleTimeline } from '../lib/visibility';
 import { useNavigator } from '../state/store';
+import { MissionFilter } from './MissionFilter';
 
 type Props = { analysis: SiteAnalysis; onClose: () => void };
 
 const UP = 0.5;
 const HOURS = 24;
+/** Mission windows look a year ahead, every 3 hours: fine enough for a landing date, and quick. */
+const SEARCH_DAYS = 365;
+const SEARCH_STEP_MS = 3 * HOUR_MS;
 
 interface Day {
   start: number;
@@ -41,6 +47,25 @@ export function LandingCalendar({ analysis, onClose }: Props) {
   const [month, setMonth] = useState(() => startOfMonth(useNavigator.getState().time));
   const next = addMonths(month, 1);
   const dayCount = Math.round((next - month) / DAY_MS);
+  const [requirements, setRequirements] = useState<MissionRequirements>(DEFAULT_REQUIREMENTS);
+  const [searchStart] = useState(() => Math.floor(useNavigator.getState().time / DAY_MS) * DAY_MS);
+
+  const year = useMemo(
+    () => ({
+      timeline: sampleTimeline(analysis.site, analysis.profile, searchStart, SEARCH_DAYS * DAY_MS, SEARCH_STEP_MS),
+      dsn: sampleDsn(searchStart, SEARCH_DAYS * DAY_MS, SEARCH_STEP_MS),
+    }),
+    [analysis.site, analysis.profile, searchStart],
+  );
+  const windows = useMemo(
+    () => findWindows(missionSeries(year.timeline, analysis.profile, year.dsn.station, requirements.antennaMaskDeg), searchStart, SEARCH_STEP_MS, requirements),
+    [year, analysis.profile, requirements, searchStart],
+  );
+  const fitsMission = (dayStart: number) => windows.some((w) => w.from < dayStart + DAY_MS && w.to >= dayStart);
+  const goTo = (time: number) => {
+    setTime(time);
+    onClose();
+  };
 
   const days = useMemo<Day[]>(() => {
     const tl = sampleTimeline(analysis.site, analysis.profile, month, dayCount * DAY_MS - HOUR_MS, HOUR_MS);
@@ -94,6 +119,9 @@ export function LandingCalendar({ analysis, onClose }: Props) {
           <span>{new Date(month).toLocaleDateString(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' })}</span>
           <button type="button" className="ghost-button" onClick={() => setMonth(next)} aria-label="›">›</button>
         </div>
+        <div className="calendar__body">
+        <MissionFilter requirements={requirements} onChange={setRequirements} windows={windows} onGo={goTo} />
+        <div className="calendar__month">
         <p className="muted calendar__hint">{t('cal.hint')}</p>
         <div className="month-grid">
           {weekdays.map((w) => (
@@ -104,12 +132,9 @@ export function LandingCalendar({ analysis, onClose }: Props) {
             <button
               key={d.start}
               type="button"
-              className={d === bestDay && d.both > 0 ? 'day-cell is-best' : 'day-cell'}
+              className={`day-cell${d === bestDay && d.both > 0 ? ' is-best' : ''}${fitsMission(d.start) ? ' is-fit' : ''}`}
               style={{ ['--both' as string]: d.both / HOURS }}
-              onClick={() => {
-                setTime(d.start + d.bestHour * HOUR_MS);
-                onClose();
-              }}
+              onClick={() => goTo(d.start + d.bestHour * HOUR_MS)}
               title={`${t('cal.both')}: ${d.both} ${t('h')} · ${t('cal.sun')}: ${d.sun} ${t('h')} · ${t('cal.earth')}: ${d.earth} ${t('h')}`}
             >
               <span className="day-cell__num">{i + 1}</span>
@@ -125,6 +150,9 @@ export function LandingCalendar({ analysis, onClose }: Props) {
           <span className="cal-key cal-key--both">{t('cal.both')}</span>
           <span className="cal-key cal-key--sun">{t('cal.sun')}</span>
           <span className="cal-key cal-key--earth">{t('cal.earth')}</span>
+          <span className="cal-key cal-key--fit">{t('mission.key')}</span>
+        </div>
+        </div>
         </div>
       </section>
     </div>,

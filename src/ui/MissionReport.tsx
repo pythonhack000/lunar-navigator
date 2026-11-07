@@ -6,6 +6,7 @@ import { siteLabel } from '../i18n';
 import { DSN_STATIONS, stationName } from '../lib/dsn';
 import { formatDeg, formatHours, formatLatLon, formatPercent } from '../lib/format';
 import { analyzePeriod, type PeriodRange } from '../lib/periodReport';
+import { powerSeries, simulateEnergy } from '../lib/power';
 import { bestLandingDays, stationShares } from '../lib/report';
 import { siteScore } from '../lib/siteScore';
 import { useNavigator } from '../state/store';
@@ -34,6 +35,8 @@ export function MissionReport({ analysis, score: view, range, onDone }: Props) {
   const date = (t: number) => new Date(t).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
   const days = bestLandingDays(timeline, period.link, BEST_DAYS);
   const shares = stationShares(period.link, DSN_STATIONS.length);
+  const power = useNavigator((s) => s.power);
+  const energy = simulateEnergy(powerSeries(power, site.lat, timeline.sunElevation, timeline.sun), timeline.stepMs / 3_600_000, power);
 
   // The print dialog itself is opened by the click that asked for the report (see SitePanel);
   // the report only clears itself away once the dialog closes.
@@ -49,6 +52,8 @@ export function MissionReport({ analysis, score: view, range, onDone }: Props) {
     [text.rows.powerLink, formatPercent(period.powerLinkShare)],
     [text.rows.night, summary.longestDarkHours > 0 ? formatHours(summary.longestDarkHours, lang) : '—'],
     [text.rows.blackout, summary.longestCommsGapHours > 0 ? formatHours(summary.longestCommsGapHours, lang) : '—'],
+    [text.rows.energy, `${energy.generatedKWh.toFixed(1)} ${text.kwh}`],
+    [text.rows.battery, `${Math.round(energy.batteryNeededWh).toLocaleString('en-US')} ${text.wh}`],
   ];
   const factors: [string, string, number][] = [
     [text.factors.sun, formatPercent(score.score.parts.sun), score.score.parts.sun],

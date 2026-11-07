@@ -21,9 +21,17 @@ Built for the NASA Space Apps Challenge 2026 — *Lunar Landing Site Navigator*.
   above the ridge, and a countdown to the next sunset / Earthset (or rise).
 - **Horizon panorama**: the 360° LOLA skyline around the site, with the Sun's and Earth's paths over the month.
 - **Lunar-month timeline**: sunlight and Earth visibility hour by hour; drag to scrub, or play at 1 h – 1 day per second.
-- **Compare** up to four sites side by side: sunlight share, Earth visibility, both at once, longest night.
+- **Compare** up to four scenarios side by side, each a site with its own landing date: sunlight, solar energy,
+  Earth visibility, both at once, longest night. Delay buttons add the same site 1, 7 or 30 days later.
+- **Windows for a mission**: enter its length, sunlight and link needs and the antenna margin, and see every
+  landing date that works in the next year.
+- **Power**: flat, upright or tracking arrays, area, efficiency, load and battery give watts, the month's energy
+  and whether the battery survives the night, plus a rough ground temperature.
+- **What if?**: sunlight and link mapped cell by cell around the site, the same mission delayed up to 90 days,
+  and the libration that lifts the Earth in and out of view.
+- **Take it with you**: a one-page PDF, an hourly CSV, and a link that reopens the same site, date and comparison.
 - **LUNA, the mission assistant**: a guided tour of the interface, plain-language briefings on the selected
-  site, and one-click rankings of the best sites for solar power, Earth link, or both.
+  site, one-click rankings, a Moon-versus-Earth explainer and a small game, Mission commander.
 - **Terrain everywhere**: a clipmap (nested, ground-pinned grids) draws the whole Moon; LOLA 64 px/deg detail
   tiles stream in around the camera, the 80 m and 240 m polar maps take over near the south pole.
 
@@ -35,6 +43,9 @@ Built for the NASA Space Apps Challenge 2026 — *Lunar Landing Site Navigator*.
 | Terrain | LOLA elevation: 4 px/° globally, 16 px/° south of 60° S (NASA SVS CGI Moon Kit), and the 80 m/px polar stereographic map LDEM_80S_80M south of 80° S (NASA PDS) |
 | Horizon | For 720 azimuths, march 1–300 km outward along great circles and keep the highest elevation angle (curvature included; no refraction because there is no air) |
 | Visibility | Share of the solar / Earth disc above the local horizon line |
+| Accuracy | Sun and Earth positions checked against NASA/JPL Horizons (DE441): largest error 0.006° over two years at four sites (`scripts/fetch_horizons.py`); illumination compared with published LOLA studies |
+| Power | 1361 W/m² × area × efficiency × panel facing × visible disc; a first estimate, not a power budget |
+| Mission sites | Published landing points where they exist. Most future missions name only a region, marked ≈. Dates are operators' plans as of November 2026 |
 
 ## Run locally
 

@@ -3,7 +3,7 @@ import { SITES, type SiteGroup } from '../data/sites';
 import { siteLabel, useT } from '../i18n';
 import { siteKey, useNavigator } from '../state/store';
 
-const GROUPS: SiteGroup[] = ['Artemis III', 'South pole', 'Robotic landers', 'Apollo'];
+const GROUPS: SiteGroup[] = ['Artemis', 'South pole', 'Future missions', 'Robotic landers', 'Apollo'];
 
 function parseCoordinate(value: string, limit: number): number | null {
   const n = Number(value.trim());
@@ -52,7 +52,7 @@ export function SitePicker() {
   const site = useNavigator((s) => s.site);
   const selectSite = useNavigator((s) => s.selectSite);
   const [query, setQuery] = useState('');
-  const currentGroup = SITES.find((s) => s.id === site.id)?.group ?? 'Artemis III';
+  const currentGroup = SITES.find((s) => s.id === site.id)?.group ?? 'Artemis';
   const [openGroups, setOpenGroups] = useState<ReadonlySet<SiteGroup>>(() => new Set([currentGroup]));
   const q = query.trim().toLowerCase();
   const matches = SITES.filter((s) => !q || `${s.name} ${s.nameRu} ${s.note} ${s.noteRu}`.toLowerCase().includes(q));
@@ -86,7 +86,7 @@ export function SitePicker() {
                   <button
                     key={s.id}
                     type="button"
-                    className={siteKey(s) === currentKey ? 'site-item is-active' : 'site-item'}
+                    className={(site.id ? s.id === site.id : siteKey(s) === currentKey) ? 'site-item is-active' : 'site-item'}
                     onClick={() => selectSite({ id: s.id, name: s.name, lat: s.lat, lon: s.lon })}
                   >
                     <span className="site-item__name">{siteLabel(s, lang)}</span>

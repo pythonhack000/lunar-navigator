@@ -5,19 +5,38 @@ import type { SiteScoreView } from '../hooks/useSiteScore';
 import { DSN_STATIONS, stationName } from '../lib/dsn';
 import { siteLabel, useT, type Translate } from '../i18n';
 import { formatDeg, formatDuration, formatHours, formatLatLon, formatPercent } from '../lib/format';
+import { panelShare, powerWatts, resolveArray } from '../lib/power';
+import type { Terrain } from '../lib/terrain';
 import type { BodyView } from '../lib/visibility';
 import { MAX_COMPARE, siteKey, useNavigator } from '../state/store';
+import { EnergyDialog } from './EnergyDialog';
 import { HorizonChart } from './HorizonChart';
 import { LandingCalendar } from './LandingCalendar';
 import { MissionReport } from './MissionReport';
 import { ReportDialog } from './ReportDialog';
+import { WhatIfDialog } from './WhatIfDialog';
 import type { PeriodRange } from '../lib/periodReport';
 
 interface SitePanelProps {
   analysis: SiteAnalysis;
   score: SiteScoreView;
+  terrain: Terrain;
   time: number;
 }
+
+type Tool = 'windows' | 'energy' | 'whatIf';
+
+const BoltIcon = () => (
+  <svg viewBox="0 0 16 16" aria-hidden="true" className="button-icon">
+    <path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+  </svg>
+);
+
+const ForkIcon = () => (
+  <svg viewBox="0 0 16 16" aria-hidden="true" className="button-icon">
+    <path d="M8 14.5V8M8 8 3.5 3.5M8 8l4.5-4.5M3.5 6.5v-3h3M12.5 6.5v-3h-3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 const CalendarIcon = () => (
   <svg viewBox="0 0 16 16" aria-hidden="true" className="button-icon">
@@ -113,13 +132,16 @@ function Readout({ tone, body, nextChange, time, detail }: ReadoutProps) {
  * The essentials first (Sun, Earth, the horizon); month totals and landing windows open on demand
  * so a first-time visitor is not faced with a wall of numbers.
  */
-export function SitePanel({ analysis, score, time }: SitePanelProps) {
+export function SitePanel({ analysis, score, terrain, time }: SitePanelProps) {
   const t = useT();
   const lang = useNavigator((s) => s.lang);
   const site = useNavigator((s) => s.site);
   const compare = useNavigator((s) => s.compare);
   const toggleCompare = useNavigator((s) => s.toggleCompare);
-  const [showCalendar, setShowCalendar] = useState(false);
+  const power = useNavigator((s) => s.power);
+  const isTerrainDetailed = useNavigator((s) => s.isTerrainDetailed);
+  const [tool, setTool] = useState<Tool | null>(null);
+  const closeTool = useCallback(() => setTool(null), []);
   const [report, setReport] = useState<'choosing' | PeriodRange | null>(null);
   const closeReport = useCallback(() => setReport(null), []);
   /**
@@ -134,7 +156,9 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
   const { state, summary, profile, timeline } = analysis;
   const inCompare = compare.some((c) => siteKey(c) === siteKey(site));
   const compareFull = !inCompare && compare.length >= MAX_COMPARE;
-  const sunPower = Math.max(0, Math.sin((state.sun.elDeg * Math.PI) / 180)) * state.sun.visibleFraction;
+  const array = resolveArray(power.arrayType, site.lat);
+  const sunShare = panelShare(array, state.sun.elDeg, state.sun.visibleFraction);
+  const sunDetail = t('panelOutArray', { array: t(`panel.array.${array}`), w: Math.round(powerWatts(power, sunShare)).toLocaleString('en-US'), p: formatPercent(sunShare) });
 
   return (
     <section className="panel site-panel" aria-label={siteLabel(site, lang)}>
@@ -144,19 +168,20 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
           <p className="muted">
             {formatLatLon(site.lat, site.lon)} · {Math.round(profile.siteHeightM).toLocaleString('en-US')} m
           </p>
+          {!isTerrainDetailed && <p className="site-panel__refining">{t('panel.refining')}</p>}
         </div>
         <div className="site-panel__actions">
           <button type="button" className="primary-button ground-enter" data-tour="ground" onClick={() => useNavigator.getState().enterGroundView()}>
             {t('ground.enter')}
           </button>
-          <button type="button" className={inCompare ? 'ghost-button is-on' : 'ghost-button'} disabled={compareFull} onClick={() => toggleCompare(site)}>
+          <button type="button" className={inCompare ? 'ghost-button is-on' : 'ghost-button'} data-tour="compare" disabled={compareFull} onClick={() => toggleCompare(site)}>
             {inCompare ? t('panel.inCompare') : t('panel.compare')}
           </button>
         </div>
       </header>
 
       <div className="readouts" data-tour="readouts">
-        <Readout tone="sun" body={state.sun} nextChange={analysis.nextSunChange} time={time} detail={t('panelOut', { p: formatPercent(sunPower) })} />
+        <Readout tone="sun" body={state.sun} nextChange={analysis.nextSunChange} time={time} detail={sunDetail} />
         <Readout
           tone="earth"
           body={state.earth}
@@ -189,20 +214,30 @@ export function SitePanel({ analysis, score, time }: SitePanelProps) {
           })}
         </p>
         <div className="month__actions">
-          <div className="month__buttons" data-tour="report">
-            <button type="button" className="ghost-button" onClick={() => setShowCalendar(true)}>
+          <div className="month__buttons">
+            <button type="button" className="ghost-button" data-tour="windows" onClick={() => setTool('windows')}>
               <CalendarIcon />
-              {t('panel.windows')}
+              {t('tool.windows')}
             </button>
-            <button type="button" className="ghost-button" onClick={() => setReport('choosing')}>
+            <button type="button" className="ghost-button" data-tour="energy" onClick={() => setTool('energy')}>
+              <BoltIcon />
+              {t('tool.energy')}
+            </button>
+            <button type="button" className="ghost-button" data-tour="whatif" onClick={() => setTool('whatIf')}>
+              <ForkIcon />
+              {t('tool.whatIf')}
+            </button>
+            <button type="button" className="ghost-button" data-tour="report" onClick={() => setReport('choosing')}>
               <DocumentIcon />
-              {t('panel.report')}
+              {t('tool.report')}
             </button>
           </div>
         </div>
       </div>
-      {showCalendar && <LandingCalendar analysis={analysis} onClose={() => setShowCalendar(false)} />}
-      {report === 'choosing' && <ReportDialog onCreate={printReport} onClose={closeReport} />}
+      {tool === 'windows' && <LandingCalendar analysis={analysis} onClose={closeTool} />}
+      {tool === 'energy' && <EnergyDialog analysis={analysis} onClose={closeTool} />}
+      {tool === 'whatIf' && <WhatIfDialog analysis={analysis} terrain={terrain} onClose={closeTool} />}
+      {report === 'choosing' && <ReportDialog analysis={analysis} onCreate={printReport} onClose={closeReport} />}
       {report !== null && report !== 'choosing' && <MissionReport analysis={analysis} score={score} range={report} onDone={closeReport} />}
     </section>
   );

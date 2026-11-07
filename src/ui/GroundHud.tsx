@@ -17,12 +17,20 @@ export function GroundHud() {
   }, [isGroundView, exitGroundView]);
 
   if (!isGroundView) return null;
+
+  // Turns you to her and opens what you can ask.
+  const askLuna = () => {
+    lookFromGround('luna');
+    useNavigator.getState().setGroundMenuOpen(true);
+  };
+
   return (
     <div className="ground-hud" role="toolbar" aria-label={t('ground.title')}>
       <div className="ground-hud__bar">
         <span className="ground-hud__title">{t('ground.title')}</span>
-        <button type="button" className="ghost-button" onClick={() => lookFromGround('sun')}>☀ {t('sun')}</button>
-        <button type="button" className="ghost-button" onClick={() => lookFromGround('earth')}>◐ {t('earth')}</button>
+        <button type="button" className="ghost-button" data-tour="look-sun" onClick={() => lookFromGround('sun')}>☀ {t('sun')}</button>
+        <button type="button" className="ghost-button" data-tour="look-earth" onClick={() => lookFromGround('earth')}>◐ {t('earth')}</button>
+        <button type="button" className="ghost-button" data-tour="look-luna" onClick={askLuna}>LUNA</button>
         <button type="button" className="primary-button" onClick={exitGroundView}>{t('ground.exit')}</button>
       </div>
       <span className="muted ground-hud__hint">{t('ground.hint')}</span>

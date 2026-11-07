@@ -24,8 +24,6 @@ interface SitePanelProps {
   time: number;
 }
 
-type Tool = 'windows' | 'energy' | 'whatIf';
-
 const BoltIcon = () => (
   <svg viewBox="0 0 16 16" aria-hidden="true" className="button-icon">
     <path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
@@ -117,7 +115,7 @@ function Readout({ tone, body, nextChange, time, detail }: ReadoutProps) {
         {formatDeg(body.elDeg)}
         <small> {t('elevation')}</small>
       </div>
-      <p className="readout__status">{statusLine(t, lang, tone, body, nextChange, time)}</p>
+      <p className="readout__status" data-tour={`status-${tone}`}>{statusLine(t, lang, tone, body, nextChange, time)}</p>
       <p className="readout__detail">{partial ? t('disc', { p: formatPercent(body.visibleFraction) }) : detail}</p>
       <dl className="readout__grid">
         <div><dt>{t('azimuth')}</dt><dd>{formatDeg(body.azDeg, 0)}</dd></div>
@@ -140,8 +138,10 @@ export function SitePanel({ analysis, score, terrain, time }: SitePanelProps) {
   const toggleCompare = useNavigator((s) => s.toggleCompare);
   const power = useNavigator((s) => s.power);
   const isTerrainDetailed = useNavigator((s) => s.isTerrainDetailed);
-  const [tool, setTool] = useState<Tool | null>(null);
-  const closeTool = useCallback(() => setTool(null), []);
+  const isGroundView = useNavigator((s) => s.isGroundView);
+  const tool = useNavigator((s) => s.openTool);
+  const setTool = useNavigator((s) => s.setOpenTool);
+  const closeTool = useCallback(() => setTool(null), [setTool]);
   const [report, setReport] = useState<'choosing' | PeriodRange | null>(null);
   const closeReport = useCallback(() => setReport(null), []);
   /**
@@ -170,14 +170,16 @@ export function SitePanel({ analysis, score, terrain, time }: SitePanelProps) {
           </p>
           {!isTerrainDetailed && <p className="site-panel__refining">{t('panel.refining')}</p>}
         </div>
-        <div className="site-panel__actions">
-          <button type="button" className="primary-button ground-enter" data-tour="ground" onClick={() => useNavigator.getState().enterGroundView()}>
-            {t('ground.enter')}
-          </button>
-          <button type="button" className={inCompare ? 'ghost-button is-on' : 'ghost-button'} data-tour="compare" disabled={compareFull} onClick={() => toggleCompare(site)}>
-            {inCompare ? t('panel.inCompare') : t('panel.compare')}
-          </button>
-        </div>
+        {!isGroundView && (
+          <div className="site-panel__actions">
+            <button type="button" className="primary-button ground-enter" data-tour="ground" onClick={() => useNavigator.getState().enterGroundView()}>
+              {t('ground.enter')}
+            </button>
+            <button type="button" className={inCompare ? 'ghost-button is-on' : 'ghost-button'} data-tour="compare" disabled={compareFull} onClick={() => toggleCompare(site)}>
+              {inCompare ? t('panel.inCompare') : t('panel.compare')}
+            </button>
+          </div>
+        )}
       </header>
 
       <div className="readouts" data-tour="readouts">
@@ -203,11 +205,11 @@ export function SitePanel({ analysis, score, terrain, time }: SitePanelProps) {
 
       <div className="month" data-tour="month">
         <div className="month__summary">
-          <span><b>{formatPercent(summary.sunlitShare)}</b> {t('sunlight')}</span>
-          <span><b>{formatPercent(summary.earthShare)}</b> {t('earthView')}</span>
-          <span><b>{formatPercent(analysis.powerLinkShare)}</b> {t('powerLink')}</span>
+          <span data-tour="metric-sun"><b>{formatPercent(summary.sunlitShare)}</b> {t('sunlight')}</span>
+          <span data-tour="metric-earth"><b>{formatPercent(summary.earthShare)}</b> {t('earthView')}</span>
+          <span data-tour="metric-both"><b>{formatPercent(analysis.powerLinkShare)}</b> {t('powerLink')}</span>
         </div>
-        <p className="month__extremes">
+        <p className="month__extremes" data-tour="metric-night">
           {t('month.extremes', {
             n: summary.longestDarkHours > 0 ? formatHours(summary.longestDarkHours, lang) : '—',
             b: summary.longestCommsGapHours > 0 ? formatHours(summary.longestCommsGapHours, lang) : '—',

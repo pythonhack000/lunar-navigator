@@ -4,6 +4,7 @@ import { MathUtils, PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import type { Terrain } from '../lib/terrain';
 import { useNavigator } from '../state/store';
 import type { CameraFocus } from './globeCamera';
+import type { CompanionState } from './GroundCompanion';
 import { latLonToThree } from './coords';
 import { easeInOutCubic } from './globeCamera';
 import { eyePosition, lookDirection, yawPitchOf } from './groundView';
@@ -15,6 +16,7 @@ interface GroundCameraProps {
   terrain: Terrain;
   sky: SkyState;
   focus: CameraFocus;
+  companion: CompanionState;
 }
 
 const ENTER_S = 3;
@@ -24,7 +26,13 @@ const GROUND_NEAR = 2e-5;
 /** Clipmap focus range while standing: the finest terrain levels around the site. */
 const GROUND_FOCUS_RANGE = 0.003;
 const LOOK_RAD_PER_PX = 0.0035;
-const PITCH_MIN = -0.35;
+/** Nearly straight down: the ground under your feet. */
+const PITCH_MIN = -1.4;
+/** A body below the horizon is looked for along the horizon, not by staring at the ground. */
+const BODY_PITCH_MIN = 0.03;
+/** LUNA hovers left of the first view, a little below eye level, clear of the panels on the right. */
+const COMPANION_YAW = -0.22;
+const COMPANION_PITCH = 0.03;
 const PITCH_MAX = 0.9;
 const LOOK_DAMPING = 5;
 
@@ -35,7 +43,7 @@ type Mode = 'off' | 'entering' | 'on' | 'leaving';
  * lets the viewer look around the real horizon (drag to turn). Leaving glides back to the rig's
  * view. It runs after CameraRig each frame, so it only overrides the camera while active.
  */
-export function GroundCamera({ lat, lon, terrain, sky, focus }: GroundCameraProps) {
+export function GroundCamera({ lat, lon, terrain, sky, focus, companion }: GroundCameraProps) {
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
   const mode = useRef<Mode>('off');
@@ -50,10 +58,11 @@ export function GroundCamera({ lat, lon, terrain, sky, focus }: GroundCameraProp
   useEffect(() => {
     if (!groundLook) return;
     const up = latLonToThree(lat, lon).normalize();
-    const dir = groundLook.body === 'sun' ? sky.sunDir : sky.earthDir;
+    const dir = groundLook.body === 'sun' ? sky.sunDir : groundLook.body === 'earth' ? sky.earthDir : companion.dir;
     const { yaw, pitch } = yawPitchOf(up, dir);
-    goal.current = { yaw: view.current.yaw + Math.atan2(Math.sin(yaw - view.current.yaw), Math.cos(yaw - view.current.yaw)), pitch: MathUtils.clamp(pitch, PITCH_MIN, PITCH_MAX) };
-  }, [groundLook, lat, lon, sky]);
+    const lowest = groundLook.body === 'luna' ? PITCH_MIN : BODY_PITCH_MIN;
+    goal.current = { yaw: view.current.yaw + Math.atan2(Math.sin(yaw - view.current.yaw), Math.cos(yaw - view.current.yaw)), pitch: MathUtils.clamp(pitch, lowest, PITCH_MAX) };
+  }, [groundLook, lat, lon, sky, companion]);
 
   useEffect(() => {
     const el = gl.domElement;
@@ -91,9 +100,11 @@ export function GroundCamera({ lat, lon, terrain, sky, focus }: GroundCameraProp
       from.current.position.copy(camera.position);
       from.current.quaternion.copy(camera.quaternion);
       // Start by facing the Sun: the shot every visitor wants first.
-      const { yaw, pitch } = yawPitchOf(latLonToThree(lat, lon).normalize(), sky.sunDir);
-      view.current = { yaw, pitch: MathUtils.clamp(pitch, PITCH_MIN, PITCH_MAX) };
+      const upDir = latLonToThree(lat, lon).normalize();
+      const { yaw, pitch } = yawPitchOf(upDir, sky.sunDir);
+      view.current = { yaw, pitch: MathUtils.clamp(pitch, BODY_PITCH_MIN, PITCH_MAX) };
       goal.current = { ...view.current };
+      companion.dir.copy(lookDirection(upDir, yaw + COMPANION_YAW, COMPANION_PITCH));
       mode.current = 'entering';
       t.current = 0;
     } else if (!isGround && (mode.current === 'on' || mode.current === 'entering')) {
@@ -126,6 +137,7 @@ export function GroundCamera({ lat, lon, terrain, sky, focus }: GroundCameraProp
     const seconds = mode.current === 'leaving' ? LEAVE_S : ENTER_S;
     if (mode.current === 'entering' || mode.current === 'leaving') t.current = Math.min(1, t.current + delta / seconds);
     const e = mode.current === 'on' ? 1 : easeInOutCubic(t.current);
+    companion.progress = mode.current === 'leaving' ? 1 - e : e;
     // Altitude shrinks on a log scale so the descent neither crawls at the top nor rushes at the end.
     const r0 = from.current.position.length();
     const r1 = target.position.length();
@@ -144,6 +156,11 @@ export function GroundCamera({ lat, lon, terrain, sky, focus }: GroundCameraProp
     }
     if (t.current >= 1 && mode.current === 'entering') mode.current = 'on';
     if (t.current >= 1 && mode.current === 'leaving') mode.current = 'off';
+    const isActive = mode.current !== 'off';
+    if (companion.isActive !== isActive) {
+      companion.isActive = isActive;
+      useNavigator.getState().setCompanion3D(isActive);
+    }
   });
 
   return null;

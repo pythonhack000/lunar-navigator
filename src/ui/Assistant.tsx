@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { SITES, uniquePlaces } from '../data/sites';
 import { WINDOW_MS, type SiteAnalysis } from '../hooks/useSiteAnalysis';
 import type { SiteScoreView } from '../hooks/useSiteScore';
@@ -9,8 +10,12 @@ import { rankSitesAsync, type RankedSite, type RankGoal } from '../lib/ranking';
 import type { Terrain } from '../lib/terrain';
 import { siteLabel } from '../i18n';
 import { MAX_COMPARE, useNavigator, type SelectedSite } from '../state/store';
-import { assistantText, describeRanking, explainSite, moonVsEarth, tourFor } from './assistantScript';
-import { LunaQuiz } from './LunaQuiz';
+import { assistantText, describeRanking, explainSite, moonVsEarth, tourFact } from './assistantScript';
+import { LunaBot, type BotMood } from './LunaBot';
+import { MissionGame } from './MissionGame';
+import { TourGuide } from './TourGuide';
+import { beatMs, tourFor } from './tourScript';
+import { useTourDirector } from './useTourDirector';
 
 type Props = {
   analysis: SiteAnalysis;
@@ -36,7 +41,10 @@ interface Message {
 
 const SEEN_KEY = 'luna-tour-seen';
 const VOICE_KEY = 'luna-voice';
-const HIGHLIGHT_CLASS = 'tour-highlight';
+/** While her panel is on the left, the site list under it steps aside so their texts never mix. */
+const LEFT_PANEL_CLASS = 'luna-on-left';
+/** How long LUNA is pleased about being clicked. */
+const HOP_MS = 700;
 /** Ranking uses a coarser time step than the panels: plenty for comparing whole months. */
 const RANK_STEP_MS = 3 * HOUR_MS;
 /** Pace of LUNA's words appearing one after another. */
@@ -129,20 +137,6 @@ function Typewriter({ lines, isLive }: { lines: string[]; isLive: boolean }) {
   );
 }
 
-function RobotAvatar({ isTalking }: { isTalking: boolean }) {
-  return (
-    <svg viewBox="0 0 64 64" className={isTalking ? 'luna-avatar is-talking' : 'luna-avatar'} aria-hidden="true">
-      <line x1="32" y1="6" x2="32" y2="14" className="luna-antenna" />
-      <circle cx="32" cy="5" r="3" className="luna-beacon" />
-      <rect x="10" y="14" width="44" height="36" rx="14" className="luna-head" />
-      <rect x="16" y="22" width="32" height="18" rx="9" className="luna-visor" />
-      <circle cx="25" cy="31" r="3.4" className="luna-eye" />
-      <circle cx="39" cy="31" r="3.4" className="luna-eye" />
-      <rect x="22" y="54" width="20" height="5" rx="2.5" className="luna-neck" />
-    </svg>
-  );
-}
-
 /** LUNA, the mission assistant: a guided tour, plain-language briefings and site recommendations. */
 export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }: Props) {
   const lang = useNavigator((s) => s.lang);
@@ -155,15 +149,23 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
   const [isFirstVisit] = useState(() => !readFlag(SEEN_KEY));
   const [isOpen, setOpen] = useState(false);
   const [isGreeting, setGreeting] = useState(false);
-  const [tourStep, setTourStep] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isThinking, setThinking] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [isPlaying, setPlaying] = useState(false);
+  const [gameGuide, setGameGuide] = useState<{ selector: string | null; mood: BotMood }>({ selector: null, mood: 'talk' });
+  const isGroundView = useNavigator((s) => s.isGroundView);
+  const power = useNavigator((s) => s.power);
+  const isCompanion3D = useNavigator((s) => s.isCompanion3D);
+  const closeGame = useCallback(() => setPlaying(false), []);
   const [hasVoice, setVoice] = useState(() => readFlag(VOICE_KEY));
   const nextId = useRef(1);
   const listRef = useRef<HTMLDivElement>(null);
-  const step = tourStep === null ? null : tour[tourStep];
+  const [isHopping, setHopping] = useState(false);
+  const endTourText = useRef<() => void>(() => undefined);
+  const onTourEnd = useCallback(() => endTourText.current(), []);
+  const director = useTourDirector(tour, onTourEnd);
+  const { step, beat } = director;
 
   // LUNA flies in once the camera has landed; on a first visit she then says hello.
   useEffect(() => {
@@ -172,16 +174,20 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
     return () => window.clearTimeout(id);
   }, [landed, isFirstVisit]);
 
-  // Spotlight the element the current tour step talks about, and read the step aloud.
+  // Tell the surface scene the tour is running, and let 3D LUNA say the line while you are down there.
+  const isTourRunning = director.isActive;
+  const line = isGroundView && beat ? beat.say : null;
+  const linePoint = beat?.point ?? null;
   useEffect(() => {
-    if (!step) return;
-    if (hasVoice) speak(`${step.title}. ${step.body}`, lang);
-    if (!step.target) return;
-    const el = document.querySelector(`[data-tour="${step.target}"]`);
-    el?.classList.add(HIGHLIGHT_CLASS);
-    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    return () => el?.classList.remove(HIGHLIGHT_CLASS);
-  }, [step, hasVoice, lang]);
+    const store = useNavigator.getState();
+    store.setTouring(isTourRunning);
+    if (isTourRunning) store.setGroundSpeech(line ? { text: line, point: linePoint } : null);
+  }, [isTourRunning, line, linePoint]);
+
+  // Read each line aloud when the voice is on.
+  useEffect(() => {
+    if (beat && hasVoice) speak(beat.say, lang);
+  }, [beat, hasVoice, lang]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
@@ -204,8 +210,7 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
   const acceptGreeting = () => {
     setGreeting(false);
     setOpen(true);
-    // The greeting already introduced LUNA, so the tour starts at its first real step.
-    setTourStep(Math.min(1, tour.length - 1));
+    director.start();
   };
 
   const declineGreeting = () => {
@@ -213,10 +218,16 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
     writeFlag(SEEN_KEY, true);
   };
 
-  const endTour = () => {
-    writeFlag(SEEN_KEY, true);
-    setTourStep(null);
-    if (messages.length === 0) say('luna', [text.tourDone]);
+  useEffect(() => {
+    endTourText.current = () => {
+      writeFlag(SEEN_KEY, true);
+      if (messages.length === 0) say('luna', [text.tourDone]);
+    };
+  });
+
+  const hop = () => {
+    setHopping(true);
+    window.setTimeout(() => setHopping(false), HOP_MS);
   };
 
   const rank = async (goal: RankGoal, label: string, artemisOnly: boolean) => {
@@ -262,10 +273,40 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
     if (!next && 'speechSynthesis' in window) window.speechSynthesis.cancel();
   };
 
-  const lastLunaId = [...messages].reverse().find((m) => m.from === 'luna')?.id;
+  const hidesSiteList = isOpen && (isPlaying || (director.isActive && !director.beat?.panelRight));
+  useEffect(() => {
+    document.body.classList.toggle(LEFT_PANEL_CLASS, hidesSiteList);
+    return () => document.body.classList.remove(LEFT_PANEL_CLASS);
+  }, [hidesSiteList]);
 
-  return (
-    <div className={landed ? 'luna is-arrived' : 'luna'} data-open={isOpen}>
+  const closePanel = () => {
+    if (director.isActive) director.finish();
+    setPlaying(false);
+    setOpen(false);
+  };
+
+  const lastLunaId = [...messages].reverse().find((m) => m.from === 'luna')?.id;
+  const isGuiding = isOpen && (director.isActive || isPlaying);
+  const fact = step && beat === step.beats[step.beats.length - 1] ? tourFact(step.key, analysis, score, power, lang) : null;
+  const panelClass = step || isPlaying ? 'panel luna-panel is-tour' : 'panel luna-panel';
+  const isOnLeft = isPlaying || (director.isActive && !beat?.panelRight);
+  const isOutOfSight = (isGroundView || isCompanion3D) && !isGuiding;
+  const rootClass = ['luna', landed && 'is-arrived', director.isActive && 'is-touring', isOnLeft && 'is-left', isOutOfSight && 'is-hidden'].filter(Boolean).join(' ');
+
+  return createPortal(
+    <div className={rootClass} data-open={isOpen}>
+      {isGuiding && (
+        <TourGuide
+          selector={isPlaying ? gameGuide.selector : beat?.spot ?? null}
+          isSoft={isPlaying}
+          isPressing={director.isPressing}
+          mood={isHopping ? 'happy' : isPlaying ? gameGuide.mood : director.isPaused ? 'idle' : 'talk'}
+          onBotClick={() => {
+            hop();
+            if (director.isActive) director.togglePause();
+          }}
+        />
+      )}
       {isGreeting && !isOpen && (
         <section className="panel luna-greet" role="dialog" aria-label={text.greetTitle}>
           <h3>{text.greetTitle}</h3>
@@ -277,9 +318,9 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
         </section>
       )}
       {isOpen && (
-        <section className={step ? 'panel luna-panel is-tour' : 'panel luna-panel'} aria-label="LUNA">
+        <section className={panelClass} aria-label="LUNA">
           <header className="luna-head-row">
-            <RobotAvatar isTalking={isThinking || step !== null} />
+            <span className="luna-head-bot"><LunaBot mood={isThinking ? 'think' : step ? 'talk' : 'idle'} /></span>
             <div>
               <strong>LUNA</strong>
               <span className="muted"> · {text.role}</span>
@@ -287,7 +328,7 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
             <button type="button" className={hasVoice ? 'icon-button is-on' : 'icon-button'} aria-pressed={hasVoice} aria-label={hasVoice ? text.voiceOn : text.voiceOff} title={hasVoice ? text.voiceOn : text.voiceOff} onClick={toggleVoice}>
               <SpeakerIcon isOn={hasVoice} />
             </button>
-            <button type="button" className="icon-button" aria-label="×" onClick={() => setOpen(false)}>
+            <button type="button" className="icon-button" aria-label="×" onClick={closePanel}>
               ×
             </button>
           </header>
@@ -295,20 +336,25 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
           {step ? (
             <div className="luna-tour">
               <h3>{step.title}</h3>
-              <Typewriter key={`${tourStep}-${lang}`} lines={[step.body]} isLive />
+              {beat && !isGroundView && <Typewriter key={`${director.beatKey}-${lang}`} lines={[beat.say]} isLive />}
+              {fact && <p className="luna-fact">{fact}</p>}
+              {beat && (
+                <div className="tour-progress" key={director.beatKey}>
+                  <span className={director.isPaused ? 'is-paused' : undefined} style={{ animationDuration: `${beatMs(beat)}ms` }} />
+                </div>
+              )}
               <div className="luna-tour-nav">
-                <span className="muted">{tourStep! + 1} / {tour.length}</span>
-                <button type="button" className="ghost-button" onClick={endTour}>{text.skip}</button>
-                <button type="button" className="primary-button" onClick={() => (tourStep! + 1 < tour.length ? setTourStep(tourStep! + 1) : endTour())}>
-                  {tourStep! + 1 < tour.length ? text.next : text.done}
-                </button>
+                <span className="muted">{director.stepIndex + 1} / {tour.length}</span>
+                <button type="button" className="ghost-button" onClick={director.togglePause}>{director.isPaused ? text.resume : text.pause}</button>
+                <button type="button" className="ghost-button" onClick={director.nextStep}>{text.next}</button>
+                <button type="button" className="ghost-button" onClick={director.finish}>{text.skip}</button>
               </div>
             </div>
           ) : isPlaying ? (
-            <LunaQuiz terrain={terrain} windowStart={windowStart} onClose={() => setPlaying(false)} />
+            <MissionGame analysis={analysis} score={score} terrain={terrain} onGuide={setGameGuide} onClose={closeGame} />
           ) : (
             <>
-              <div className="luna-messages" ref={listRef}>
+              {!showMore && <div className="luna-messages" ref={listRef}>
                 {messages.length === 0 && <p className="muted">{text.empty}</p>}
                 {messages.map((m) => (
                   <div key={m.id} className={`luna-msg luna-msg--${m.from}`}>
@@ -348,16 +394,16 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
                   </div>
                 ))}
                 {isThinking && <p className="muted luna-thinking">{text.thinking}</p>}
-              </div>
+              </div>}
               {/* The four questions people ask most stay in view; the rest open on demand. */}
-              <div className="luna-chips">
+              <div className={showMore ? 'luna-chips is-open' : 'luna-chips'} onClick={(e) => { if (!(e.target as HTMLElement).closest('.luna-chips__more')) setShowMore(false); }}>
                 <button type="button" onClick={() => { say('user', [text.explain]); say('luna', explainSite(siteLabel(site, lang), analysis, lang, score)); }}>{text.explain}</button>
                 <button type="button" disabled={isThinking} onClick={() => void findBest()}>{text.best}</button>
-                <button type="button" onClick={() => useNavigator.getState().setValidationOpen(true)}>{text.accuracy}</button>
-                <button type="button" onClick={() => setTourStep(0)}>{text.tour}</button>
+                <button type="button" className="luna-chips__game" data-tour="game-chip" onClick={() => setPlaying(true)}>{text.game}</button>
+                <button type="button" onClick={() => director.start()}>{text.tour}</button>
                 {showMore && (
                   <>
-                    <button type="button" onClick={() => setPlaying(true)}>{text.game}</button>
+                    <button type="button" onClick={() => useNavigator.getState().setValidationOpen(true)}>{text.accuracy}</button>
                     <button type="button" onClick={() => { say('user', [text.moonVsEarth]); say('luna', moonVsEarth(analysis, lang)); }}>{text.moonVsEarth}</button>
                     <button type="button" disabled={isThinking} onClick={() => void rank('both', text.artemis, true)}>{text.artemis}</button>
                     {(['power', 'comms', 'both'] as const).map((g) => (
@@ -375,9 +421,16 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
           )}
         </section>
       )}
-      <button type="button" className={isGreeting ? 'luna-launcher is-waving' : 'luna-launcher'} aria-label="LUNA" onClick={() => (isGreeting ? acceptGreeting() : setOpen(!isOpen))}>
-        <RobotAvatar isTalking={isThinking || isGreeting} />
-      </button>
-    </div>
+      {!isGuiding && (
+        <button type="button" className={isGreeting ? 'luna-launcher is-waving' : 'luna-launcher'} aria-label="LUNA" onClick={() => {
+          hop();
+          if (isGreeting) acceptGreeting();
+          else setOpen(!isOpen);
+        }}>
+          <LunaBot mood={isHopping ? 'happy' : isGreeting ? 'wave' : isThinking ? 'think' : 'idle'} />
+        </button>
+      )}
+    </div>,
+    document.body,
   );
 }

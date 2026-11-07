@@ -697,3 +697,194 @@ figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
   .what-if-table thead th { white-space: normal; font-size: 10.5px; }
   .what-if-cell { font-size: 10px; }
 }
+
+/* LUNA lives above the page, so she can point at anything and stay over an open window. */
+.luna.is-hidden { display: none; }
+.luna.is-touring { z-index: 60; }
+.luna-panel { position: relative; z-index: 2; }
+body.tour-dialog .luna { left: 16px; right: auto; align-items: flex-start; }
+body.tour-dialog .modal-backdrop { place-items: center end; padding-right: 24px; }
+
+/* The robot: an alien on a saucer. One accent colour, as everywhere else. */
+.luna-launcher { width: 76px; height: 84px; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.6)); }
+.luna-launcher:hover { filter: drop-shadow(0 0 14px rgba(255, 181, 71, 0.55)); }
+.luna-head-bot { width: 38px; height: 42px; flex-shrink: 0; flex-grow: 0; }
+.luna-head-row > .luna-head-bot { flex: 0 0 38px; }
+.luna-bot { width: 100%; height: 100%; display: block; overflow: visible; --gx: 0px; --gy: 0px; }
+.bot-head { fill: #dfe3e8; }
+.bot-seam { fill: none; stroke: #aab0b8; stroke-width: 0.8; stroke-linecap: round; }
+.bot-neck { fill: #7c828b; }
+.bot-antenna { fill: none; stroke: #8b919a; stroke-width: 1.6; stroke-linecap: round; transform-box: view-box; transform-origin: 32px 10px; }
+.bot-tip { fill: var(--sun); stroke: none; filter: drop-shadow(0 0 3px var(--sun)); }
+.bot-eye-shape { fill: #0b0c0f; }
+.bot-pupil { fill: var(--sun); filter: drop-shadow(0 0 2px var(--sun)); transform: translate(var(--gx), var(--gy)); transition: transform 0.12s ease-out; }
+.bot-eye { transform-box: fill-box; transform-origin: center; animation: bot-blink 4.6s infinite; }
+.bot-mouth { fill: #4a4f57; transform-box: fill-box; transform-origin: center; }
+.bot-saucer { fill: #8b919a; }
+.bot-saucer-top { fill: #b5bac2; }
+.bot-light { fill: var(--sun); animation: bot-chase 1.5s infinite; }
+.bot-light:nth-of-type(2) { animation-delay: 0.5s; }
+.bot-light:nth-of-type(3) { animation-delay: 1s; }
+.bot-beam { fill: var(--sun); opacity: 0.1; animation: bot-glow 2.4s ease-in-out infinite; }
+.bot-body { animation: bot-hover 3.2s ease-in-out infinite; }
+.luna-bot.is-talk .bot-mouth { fill: var(--sun); animation: bot-talk 0.42s ease-in-out infinite; }
+.luna-bot.is-think .bot-tip { animation: bot-chase 0.6s infinite; }
+.luna-bot.is-think .bot-antenna { animation: bot-sway 0.9s ease-in-out infinite; }
+.luna-bot.is-wave .bot-body { animation: bot-wave 1.5s ease-in-out infinite; transform-origin: 50% 80%; transform-box: fill-box; }
+.luna-bot.is-happy .bot-body { animation: bot-jump 0.7s ease-in-out infinite; }
+.luna-bot.is-happy .bot-mouth { fill: var(--sun); }
+.luna-bot.is-sad .bot-body { transform: translateY(3px) rotate(-4deg); animation: none; transform-origin: 50% 80%; transform-box: fill-box; }
+.luna-bot.is-sad .bot-pupil { fill: #8b919a; filter: none; }
+.luna.is-arrived .luna-launcher, .luna.is-arrived .luna-launcher.is-waving { animation: luna-arrive 1s cubic-bezier(0.2, 0.9, 0.3, 1.15) both; }
+@keyframes bot-hover { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
+@keyframes bot-blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(0.08); } }
+@keyframes bot-chase { 0%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+@keyframes bot-glow { 0%, 100% { opacity: 0.06; } 50% { opacity: 0.2; } }
+@keyframes bot-talk { 0%, 100% { transform: scaleY(0.6); } 50% { transform: scaleY(2.6); } }
+@keyframes bot-sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@keyframes bot-wave { 0%, 60%, 100% { transform: rotate(0); } 15%, 45% { transform: rotate(-10deg); } 30% { transform: rotate(10deg); } }
+@keyframes bot-jump { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+
+/* LUNA flying around the page: the ring, the tractor beam and the robot itself */
+.luna > .luna-guide, .luna-guide * { pointer-events: none; }
+.tour-ring {
+  position: fixed; z-index: 1; border-radius: 12px; border: 2px solid #fff;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.52), 0 0 22px 4px rgba(255, 181, 71, 0.75);
+  transition: left 0.45s cubic-bezier(0.3, 0.8, 0.3, 1), top 0.45s cubic-bezier(0.3, 0.8, 0.3, 1), width 0.45s cubic-bezier(0.3, 0.8, 0.3, 1), height 0.45s cubic-bezier(0.3, 0.8, 0.3, 1);
+  animation: tour-ring-pulse 1.5s ease-in-out infinite;
+}
+.tour-ring.is-soft { box-shadow: 0 0 22px 4px rgba(255, 181, 71, 0.75); border-color: var(--sun); }
+.tour-beam {
+  position: fixed; z-index: 3; height: 44px; margin-top: -22px; transform-origin: 0 50%;
+  background: linear-gradient(90deg, rgba(255, 181, 71, 0.55), rgba(255, 181, 71, 0.08));
+  clip-path: polygon(0 44%, 100% 0, 100% 100%, 0 56%);
+  animation: tour-beam-in 0.7s ease-out both;
+}
+.tour-bot {
+  position: fixed; left: 0; top: 0; z-index: 4; width: 76px; height: 84px;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.6));
+  transition: transform 0.7s cubic-bezier(0.3, 0.9, 0.3, 1.05);
+}
+@keyframes tour-ring-pulse { 50% { border-color: var(--sun); } }
+@keyframes tour-beam-in { from { opacity: 0; } 50% { opacity: 0; } }
+.luna-fact { margin-top: 10px; padding: 8px 10px; border-left: 2px solid var(--sun); background: var(--sun-soft); border-radius: 0 8px 8px 0; color: var(--text) !important; font-size: 13px !important; font-weight: 600; }
+.luna-chips .luna-chips__game { border-color: var(--sun); color: var(--sun); }
+@media (prefers-reduced-motion: reduce) {
+  .bot-body, .bot-eye, .bot-light, .bot-beam, .bot-mouth, .bot-antenna, .tour-ring, .tour-beam { animation: none !important; }
+  .tour-bot, .tour-ring, .bot-pupil { transition: none; }
+}
+
+/* Mission commander */
+.game { display: flex; flex-direction: column; gap: 9px; font-size: 13.5px; line-height: 1.45; }
+.game h3 { margin: 0; color: var(--text); font-size: 16px; }
+.game-head { display: flex; justify-content: space-between; align-items: center; }
+.game-stars { font: 600 14px var(--mono); color: var(--sun); }
+.game-task { font-weight: 600; }
+.game-log { width: 100%; border-collapse: collapse; font-size: 13px; }
+.game-log th, .game-log td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: left; font-weight: 500; }
+.game-log td { text-align: right; white-space: nowrap; }
+.game-log thead th { color: var(--faint); font-size: 11px; }
+.game-log thead th:last-child { text-align: right; }
+.game-log tr.is-here th { color: var(--sun); }
+.game-log b { color: var(--text); font-size: 14px; }
+.game-action { padding: 4px 10px; font-size: 12px; font-weight: 600; }
+.game-pick { width: 100%; padding: 6px 10px; text-align: left; font-size: 13px; }
+.game-hint { font-size: 12.5px; }
+.game-hint .link-button { color: var(--muted); text-decoration: underline; }
+.game-hint p { padding: 6px 10px; border-left: 2px solid var(--line-strong); color: var(--muted); }
+.game-look { font-size: 12px; }
+.game-options { display: grid; gap: 6px; }
+.game-options button { padding: 8px 11px; white-space: normal; text-align: left; line-height: 1.35; }
+.game-options button:disabled { opacity: 0.45; }
+.game-verdict { font-weight: 700; }
+.game-now { padding: 7px 10px; background: rgba(255, 255, 255, 0.04); border-radius: 8px; font-size: 12.5px; }
+.game-earned { font-size: 22px; letter-spacing: 3px; color: var(--sun); }
+.game-earned span { color: var(--line-strong); }
+.game-rank { font-size: 24px !important; color: var(--sun) !important; font-weight: 700; }
+.game-rank-label { font-family: var(--mono); }
+.luna-head-bot .bot-beam { display: none; }
+
+/* Her panel moves aside so the Moon and the site stay in view during the tour and the game. */
+@media (min-width: 961px) {
+  .luna.is-left { left: 16px; right: auto; align-items: flex-start; }
+}
+
+/* LUNA's own glow is off while she flies: the tractor beam is the only light she shines. */
+.tour-bot .bot-beam, .luna-head-bot .bot-beam { display: none; }
+.tour-bot { padding: 0; border: 0; background: none; cursor: pointer; pointer-events: auto !important; }
+.bot-pupil { transition: none; }
+.tour-ring.is-pressing { border-color: var(--sun); box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.52), 0 0 0 5px var(--sun), 0 0 34px 10px rgba(255, 181, 71, 0.95); }
+.tour-ring.is-soft.is-pressing { box-shadow: 0 0 0 5px var(--sun), 0 0 34px 10px rgba(255, 181, 71, 0.95); }
+
+/* The tour's clock: it runs by itself, and shows how long this line stays */
+.tour-progress { height: 3px; margin-top: 12px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.tour-progress span { display: block; height: 100%; width: 100%; background: var(--sun); transform-origin: left; animation: tour-progress linear both; }
+.tour-progress span.is-paused { animation-play-state: paused; }
+@keyframes tour-progress { from { transform: scaleX(0); } }
+.luna-tour .luna-tour-nav button { padding: 5px 9px; font-size: 12.5px; }
+
+/* "More" replaces the conversation instead of squeezing it to nothing */
+.luna-chips.is-open { flex: 1; min-height: 0; overflow-y: auto; align-content: flex-start; }
+
+/* On the surface: arrows pointing the way to the Sun and the Earth */
+.ground-arrows { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+.ground-arrow {
+  position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; pointer-events: auto; cursor: pointer;
+  border-radius: 99px; background: rgba(10, 11, 14, 0.82); border: 1px solid currentColor; font: 600 12.5px var(--font); white-space: nowrap;
+}
+.ground-arrow svg { width: 15px; height: 15px; flex-shrink: 0; }
+.ground-arrow--sun { color: var(--sun); }
+.ground-arrow--earth { color: var(--earth); }
+.ground-arrow:hover { background: rgba(40, 42, 48, 0.95); }
+body.tour-dialog .tour-beam { background: linear-gradient(90deg, rgba(255, 181, 71, 0.3), rgba(255, 181, 71, 0.04)); }
+.luna-chips.is-open { gap: 5px; }
+.luna-chips.is-open button { padding: 4px 10px; }
+
+/* LUNA's panel on the left: solid, with the site list out of the way, so no text shows through */
+body.luna-on-left .site-picker { visibility: hidden; }
+.luna-panel.is-tour { background: #0b0c0f; }
+
+/* The flat robot gives way to the 3D one on the surface */
+.tour-bot { transition: transform 0.7s cubic-bezier(0.3, 0.9, 0.3, 1.05), opacity 0.5s ease; }
+.tour-bot.is-gone { opacity: 0; pointer-events: none !important; }
+
+/* Report and data: two equal buttons, then the link */
+.report-dialog__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.report-dialog__actions button { min-height: 42px; padding: 8px 12px; font-size: 13.5px; font-weight: 600; text-align: center; }
+.report-dialog__periods { display: grid; grid-template-columns: repeat(4, 1fr); }
+.report-dialog__how { margin-top: -4px; }
+.report-dialog__share { display: grid; gap: 6px; }
+.report-dialog__share button { min-height: 42px; width: 100%; font-weight: 600; }
+
+/* The open search */
+.game-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 13px; }
+.game-checks li { display: flex; gap: 8px; align-items: baseline; color: var(--muted); }
+.game-checks li span { font-family: var(--mono); }
+.game-checks li.is-ok { color: var(--text); font-weight: 600; }
+.game-checks li.is-ok span { color: var(--sun); }
+.game-hints { margin: 0; padding: 8px 10px; font-size: 12.5px; color: var(--muted); border-left: 2px solid var(--sun); background: var(--sun-soft); border-radius: 0 8px 8px 0; }
+.game-help { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; }
+.game-help .link-button { color: var(--muted); text-decoration: underline; }
+.game-help .game-rescue { color: var(--sun); font-weight: 600; }
+.luna-panel.is-tour { max-height: calc(100vh - 110px); overflow-y: auto; }
+
+/* 3D LUNA talking on the surface */
+.ground-bubble {
+  display: block; width: max-content; max-width: 340px; padding: 10px 14px; cursor: pointer; text-align: left;
+  border-radius: 14px; border: 1px solid var(--sun); background: rgba(10, 11, 14, 0.92); color: var(--text);
+  font: 500 14px/1.4 var(--font); transform: translate(44px, -50%); animation: bubble-in 0.35s ease both;
+}
+.ground-bubble:hover { background: #17191e; }
+@keyframes bubble-in { from { opacity: 0; } }
+
+/* What you can ask her on the surface */
+.ground-talk { width: 340px; transform: translate(20px, -50%); display: flex; align-items: flex-end; height: 0; }
+.ground-talk .ground-bubble { transform: none; }
+.ground-menu { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; width: max-content; transform: translateY(-50%); }
+.ground-menu button {
+  padding: 5px 10px; border-radius: 99px; cursor: pointer; font: 500 12.5px var(--font); color: var(--text);
+  background: rgba(10, 11, 14, 0.92); border: 1px solid var(--line-strong);
+}
+.ground-menu button:hover { border-color: var(--sun); color: var(--sun); }
+/* The click area over 3D LUNA: invisible, about the size she appears */
+.ground-tap { display: block; width: 170px; height: 190px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }

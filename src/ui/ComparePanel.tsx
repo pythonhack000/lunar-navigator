@@ -111,7 +111,7 @@ export function ComparePanel({ terrain, windowStart }: ComparePanelProps) {
   };
 
   return (
-    <section className="panel compare" aria-label={t('compare.titleScenarios')}>
+    <section className="panel compare" aria-label={t('compare.titleScenarios')} data-tour="compare-panel">
       <header className="compare__head">
         <h3>{t('compare.titleScenarios')}</h3>
         <div className="segmented compare__periods" role="group" aria-label={t('compare.period')}>
@@ -179,7 +179,7 @@ export function ComparePanel({ terrain, windowStart }: ComparePanelProps) {
         <span className="muted">{t('compare.delay')}</span>
         <div className="segmented compare__periods">
           {SLIP_DAYS.map((days) => (
-            <button key={days} type="button" disabled={compare.length >= MAX_COMPARE} onClick={() => slip(days)}>{t('whatIf.days', { n: days })}</button>
+            <button key={days} type="button" data-tour={`slip-${days}`} disabled={compare.length >= MAX_COMPARE} onClick={() => slip(days)}>{t('whatIf.days', { n: days })}</button>
           ))}
         </div>
       </div>

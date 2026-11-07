@@ -19,6 +19,11 @@ export interface Scenario extends SelectedSite {
   at?: number;
 }
 
+/** The windows opened from the site panel; LUNA's tour opens them too. */
+export type ToolName = 'windows' | 'energy' | 'whatIf';
+
+export type GroundQuestionKey = 'explain' | 'sun' | 'earth' | 'power' | 'moon';
+
 export type PlaybackSpeed = 1 | 6 | 24;
 
 export type ReliefScale = 1 | 3 | 5;
@@ -58,6 +63,8 @@ interface NavigatorState {
   /** False until the detailed polar elevation grids replace the coarse first ones. */
   isTerrainDetailed: boolean;
   setTerrainDetailed: () => void;
+  openTool: ToolName | null;
+  setOpenTool: (tool: ToolName | null) => void;
   /** The solar array and load behind every power figure. */
   power: PowerConfig;
   setPower: (power: PowerConfig) => void;
@@ -68,6 +75,9 @@ interface NavigatorState {
   /** Camera height above the surface, km, updated a few times a second for the HUD. */
   cameraAltitudeKm: number;
   flyToSite: () => void;
+  /** Bumped to pull the camera back over the whole south polar cap. */
+  polarViewNonce: number;
+  showPolarView: () => void;
   showWholeMoon: () => void;
   setCameraAltitude: (km: number) => void;
   /** Vertical exaggeration of the 3D terrain; purely visual. */
@@ -97,11 +107,28 @@ interface NavigatorState {
   isGroundView: boolean;
   enterGroundView: () => void;
   exitGroundView: () => void;
+  /** What 3D LUNA is saying beside you on the surface, and what she points at. */
+  groundSpeech: { text: string; point: 'sun' | 'earth' | null } | null;
+  setGroundSpeech: (speech: { text: string; point: 'sun' | 'earth' | null } | null) => void;
+  /** Bumped by a click on her words: the next line. */
+  groundTalkNonce: number;
+  talkOnGround: () => void;
+  /** The questions you can ask her on the surface, opened by clicking her. */
+  isGroundMenuOpen: boolean;
+  setGroundMenuOpen: (isOpen: boolean) => void;
+  groundQuestion: { key: GroundQuestionKey; nonce: number } | null;
+  askOnGround: (key: GroundQuestionKey) => void;
+  /** True while she is 3D: from the start of the descent until the climb back to orbit ends. */
+  isCompanion3D: boolean;
+  setCompanion3D: (is3D: boolean) => void;
+  /** The tour speaks through her while it runs. */
+  isTouring: boolean;
+  setTouring: (isTouring: boolean) => void;
   /** Relief to restore when leaving the ground view. */
   reliefBeforeGround: ReliefScale;
   /** Turn the ground view toward the Sun or the Earth; the nonce repeats a request. */
-  groundLook: { body: 'sun' | 'earth'; nonce: number } | null;
-  lookFromGround: (body: 'sun' | 'earth') => void;
+  groundLook: { body: 'sun' | 'earth' | 'luna'; nonce: number } | null;
+  lookFromGround: (body: 'sun' | 'earth' | 'luna') => void;
   setTime: (time: number) => void;
   setGlobeView: (isGlobeView: boolean) => void;
   setPlaying: (playing: boolean) => void;
@@ -143,12 +170,16 @@ export const useNavigator = create<NavigatorState>((set) => ({
   compare: shared.compare.map((place) => ({ ...placeFromLink(place), ...(place.at === undefined ? {} : { at: place.at }) })),
   isTerrainDetailed: false,
   setTerrainDetailed: () => set({ isTerrainDetailed: true }),
+  openTool: null,
+  setOpenTool: (openTool) => set({ openTool }),
   power: DEFAULT_POWER,
   setPower: (power) => set({ power }),
   isGlobeView: false,
   flyNonce: 0,
   cameraAltitudeKm: 4000,
   flyToSite: () => set((s) => ({ isGlobeView: false, flyNonce: s.flyNonce + 1 })),
+  polarViewNonce: 0,
+  showPolarView: () => set((s) => ({ polarViewNonce: s.polarViewNonce + 1 })),
   showWholeMoon: () => set((s) => ({ isGlobeView: true, flyNonce: s.flyNonce + 1 })),
   setCameraAltitude: (cameraAltitudeKm) => set({ cameraAltitudeKm }),
   relief: 3,
@@ -175,6 +206,18 @@ export const useNavigator = create<NavigatorState>((set) => ({
   isValidationOpen: false,
   setValidationOpen: (isValidationOpen) => set({ isValidationOpen }),
   isGroundView: false,
+  groundSpeech: null,
+  setGroundSpeech: (groundSpeech) => set({ groundSpeech }),
+  groundTalkNonce: 0,
+  talkOnGround: () => set((s) => ({ groundTalkNonce: s.groundTalkNonce + 1 })),
+  isGroundMenuOpen: false,
+  setGroundMenuOpen: (isGroundMenuOpen) => set({ isGroundMenuOpen }),
+  groundQuestion: null,
+  askOnGround: (key) => set((s) => ({ groundQuestion: { key, nonce: (s.groundQuestion?.nonce ?? 0) + 1 }, isGroundMenuOpen: false })),
+  isCompanion3D: false,
+  setCompanion3D: (isCompanion3D) => set({ isCompanion3D }),
+  isTouring: false,
+  setTouring: (isTouring) => set({ isTouring }),
   reliefBeforeGround: 3,
   enterGroundView: () => set((s) => (s.isGroundView ? s : { isGroundView: true, reliefBeforeGround: s.relief, relief: 1 })),
   exitGroundView: () => set((s) => (s.isGroundView ? { isGroundView: false, relief: s.reliefBeforeGround, groundLook: null } : s)),

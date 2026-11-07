@@ -12,6 +12,7 @@ import {
   easeInOutCubic,
   flightPose,
   flightSeconds,
+  polarOverviewPose,
   minRangeAt,
   moveTarget,
   poseToCamera,
@@ -99,6 +100,15 @@ export function CameraRig({ lat, lon, sunDir, isGlobeView, flyNonce, terrain, re
     flight.current = { from, to, t: 0, seconds: isOpening ? Math.max(OPENING_DESCENT_S, flightSeconds(from, to)) : flightSeconds(from, to) };
     goal.current = to;
   }, [lat, lon, isGlobeView, flyNonce, hold]);
+
+  const polarViewNonce = useNavigator((s) => s.polarViewNonce);
+  useEffect(() => {
+    if (polarViewNonce === 0) return;
+    const from = clonePose(current.current);
+    const to = polarOverviewPose(sunRef.current);
+    flight.current = { from, to, t: 0, seconds: flightSeconds(from, to) };
+    goal.current = to;
+  }, [polarViewNonce]);
 
   useEffect(() => {
     const el = gl.domElement;

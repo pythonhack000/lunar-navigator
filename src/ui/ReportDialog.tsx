@@ -62,11 +62,11 @@ export function ReportDialog({ analysis, onCreate, onClose }: Props) {
           <label>{t('compare.to')} <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
         </div>
       )}
-      <p className="muted report-dialog__how">{t('report.how')}</p>
       <div className="report-dialog__actions">
-        <button type="button" className="ghost-button" onClick={downloadCsv}>{t('report.csv')}</button>
         <button type="button" className="primary-button" onClick={() => onCreate(range())}>{t('report.create')}</button>
+        <button type="button" className="ghost-button" onClick={downloadCsv}>{t('report.csv')}</button>
       </div>
+      <p className="muted report-dialog__how">{t('report.how')}</p>
       <div className="report-dialog__share">
         <button type="button" className="ghost-button" onClick={() => void copyLink()}>
           {linkState === 'copied' ? t('report.linkDone') : t('report.link')}

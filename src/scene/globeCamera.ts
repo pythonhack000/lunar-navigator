@@ -48,6 +48,15 @@ export function sitePose(lat: number, lon: number, sunDir: Vector3): CameraPose 
   return { target, forward: tangentAt(target, sunDir), range: SITE_RANGE, tilt: SITE_TILT };
 }
 
+/** Far enough back to take in the whole polar cap, where the Sunlight, Ice and Slopes maps are. */
+const POLAR_OVERVIEW_RANGE = 0.85;
+const POLAR_OVERVIEW_TILT = MathUtils.degToRad(22);
+const POLAR_OVERVIEW_LAT = -88;
+
+export function polarOverviewPose(sunDir: Vector3): CameraPose {
+  return { ...sitePose(POLAR_OVERVIEW_LAT, 0, sunDir), range: POLAR_OVERVIEW_RANGE, tilt: POLAR_OVERVIEW_TILT };
+}
+
 export function clonePose(p: CameraPose): CameraPose {
   return { target: p.target.clone(), forward: p.forward.clone(), range: p.range, tilt: p.tilt };
 }

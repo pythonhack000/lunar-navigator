@@ -50,6 +50,7 @@ export function CameraStatus({ polarRhoMax }: Props) {
         <button
           type="button"
           className="view-toggle"
+          data-tour="relief"
           title={t('camera.relief')}
           onClick={() => setRelief(RELIEF_OPTIONS[(RELIEF_OPTIONS.indexOf(relief) + 1) % RELIEF_OPTIONS.length])}
         >
@@ -58,7 +59,7 @@ export function CameraStatus({ polarRhoMax }: Props) {
         <div className="segmented pill-group" role="group" aria-label={t('layer.label')}>
           <span>{t('layer.label')}</span>
           {LAYERS.map((l) => (
-            <button key={l} type="button" className={l === layer ? 'is-active' : undefined} aria-pressed={l === layer} onClick={() => setLayer(l)}>
+            <button key={l} type="button" data-tour={`layer-${l}`} className={l === layer ? 'is-active' : undefined} aria-pressed={l === layer} onClick={() => setLayer(l)}>
               {t(`layer.${l}`)}
             </button>
           ))}

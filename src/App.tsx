@@ -20,7 +20,9 @@ import { SitePicker } from './ui/SitePicker';
 import { TimeControls } from './ui/TimeControls';
 import { TimelineBar } from './ui/TimelineBar';
 import { ValidationPanel } from './ui/ValidationPanel';
+import { GroundArrows } from './ui/GroundArrows';
 import { GroundHud } from './ui/GroundHud';
+import { GroundTalk } from './ui/GroundTalk';
 
 type Props = { loaded: LoadedTerrain };
 
@@ -59,6 +61,7 @@ function Navigator({ loaded }: Props) {
         <CameraStatus polarRhoMax={loaded.manifest.polar.rhoMax} />
         <LoadingBar />
         <GroundHud />
+        <GroundArrows />
       </div>
       <div className="hud">
         <header className="brand">
@@ -66,6 +69,7 @@ function Navigator({ loaded }: Props) {
           <p>{translate(lang, 'brand.subtitle')}</p>
         </header>
         <SitePicker />
+        <GroundTalk analysis={analysis} score={score} />
         <SitePanel analysis={analysis} score={score} terrain={loaded.terrain} time={time} />
         <ComparePanel terrain={loaded.terrain} windowStart={windowStartFor(time)} />
         <Assistant analysis={analysis} score={score} terrain={loaded.terrain} windowStart={windowStartFor(time)} polarRhoMax={loaded.manifest.polar.rhoMax} />

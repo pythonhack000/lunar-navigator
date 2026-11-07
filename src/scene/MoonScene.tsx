@@ -12,6 +12,7 @@ import { siteKey, useNavigator, type SelectedSite } from '../state/store';
 import { CameraRig } from './CameraRig';
 import { Earth } from './Earth';
 import { GroundCamera } from './GroundCamera';
+import { GroundCompanion, type CompanionState } from './GroundCompanion';
 import { SkyPaths } from './SkyPaths';
 import type { CameraFocus } from './globeCamera';
 import { createSky, updateSky, type SkyState } from './sky';
@@ -75,6 +76,7 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOute
     updateSky(s, useNavigator.getState().time);
     return s;
   }, []);
+  const companion = useMemo<CompanionState>(() => ({ dir: new Vector3(1, 0, 0), progress: 0, isActive: false }), []);
   const others = uniquePlaces(compare).filter((c: SelectedSite) => siteKey(c) !== siteKey(site));
 
   return (
@@ -106,8 +108,9 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOute
         <SiteMarker key={siteKey(c)} lat={c.lat} lon={c.lon} label={siteLabel(c, lang)} isPrimary={false} />
       ))}
       <CameraRig lat={site.lat} lon={site.lon} sunDir={sky.sunDir} isGlobeView={isGlobeView} flyNonce={flyNonce} terrain={terrain} relief={relief} focus={focus} polarEdgeLat={polar.edgeLat} outerEdgeLat={polarOuter?.edgeLat} onPick={onPick} hold={!introDone} />
-      <GroundCamera lat={site.lat} lon={site.lon} terrain={terrain} sky={sky} focus={focus} />
+      <GroundCamera lat={site.lat} lon={site.lon} terrain={terrain} sky={sky} focus={focus} companion={companion} />
       {isGroundView && <SkyPaths lat={site.lat} lon={site.lon} terrain={terrain} sky={sky} />}
+      <GroundCompanion lat={site.lat} lon={site.lon} sky={sky} companion={companion} />
       <EffectComposer>
         <Bloom intensity={0.9} luminanceThreshold={0.95} luminanceSmoothing={0.2} mipmapBlur />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />

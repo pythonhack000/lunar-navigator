@@ -1,4 +1,4 @@
-import { angularRadiusDeg, EARTH_RADIUS_KM, MOON_RADIUS_KM, moonSky, SUN_RADIUS_KM } from './ephemeris';
+import { angularRadiusDeg, EARTH_RADIUS_KM, MOON_RADIUS_KM, moonSky, SUN_RADIUS_KM, type MoonSky } from './ephemeris';
 import { cross, DEG, dot, latLonToUnit, length, normalize, scale, sub, wrapAz, type Vec3 } from './vec';
 
 export interface Site {
@@ -54,8 +54,15 @@ function observe(frame: LocalFrame, target: Vec3, bodyRadiusKm: number): SkyBody
 
 /** Azimuth (clockwise from north) and elevation of the Sun and Earth for an observer on the Moon. */
 export function siteSky(site: Site, date: Date): SiteSky {
+  return siteSkyFrom(site, moonSky(date));
+}
+
+/**
+ * The same, from Sun and Earth positions computed once for a moment: they do not depend on the
+ * site, so a search over many sites reuses them instead of redoing the ephemeris for each.
+ */
+export function siteSkyFrom(site: Site, sky: Pick<MoonSky, 'sun' | 'earth'>): SiteSky {
   const frame = localFrame(site);
-  const sky = moonSky(date);
   return {
     sun: observe(frame, sky.sun, SUN_RADIUS_KM),
     earth: observe(frame, sky.earth, EARTH_RADIUS_KM),

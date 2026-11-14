@@ -46,7 +46,9 @@ const EN: readonly TourStep[] = [
   {
     key: 'sites',
     title: 'Pick a landing site',
-    beats: [{ spot: tag('sites'), panelRight: true, say: 'Start here: Artemis regions, the south pole, future missions, robotic landers and all six Apollo sites. You can also type coordinates, or just click anywhere on the Moon.' }],
+    beats: [
+      { spot: tag('sites'), panelRight: true, say: 'Start here: Artemis regions, the south pole, future missions, robotic landers and all six Apollo sites. You can also type coordinates, or just click anywhere on the Moon.' },
+    ],
   },
   {
     key: 'maps',
@@ -131,6 +133,18 @@ const EN: readonly TourStep[] = [
     ],
   },
   {
+    key: 'search',
+    title: 'Where can it land?',
+    beats: [
+      { spot: tag('site-search'), panelRight: true, say: 'Now the question the other way round: where can a mission land? This button searches the whole south pole. Let me open it.', press: tag('site-search') },
+      { spot: '.site-search__presets', inDialog: true, say: 'Pick a goal in one click: the most sunlight, the best radio link, both together, or eternal shadow where ice can hide. I will take sunlight and link.', press: '.site-search__presets button:nth-child(3)' },
+      { spot: '.site-search__period', inDialog: true, say: 'Search over your own dates, from one day to another, or on average over a whole year.' },
+      { spot: '.need-field', inDialog: true, say: 'Each need can be a floor or a ceiling, or "any" to leave it out. So you can search by light alone, or by the link alone.' },
+      { spot: '.site-search__map', inDialog: true, say: 'Spots light up as I check them: amber fits, dark amber almost, grey does not. The best three get numbers. Now look at the Moon.', ms: 7000, press: tag('search-show') },
+      { spot: '.search-chip', say: 'There they are, glowing on the real terrain. Click any spot to fly there. This bar brings the list back, and the cross switches the lights off.', ms: 7000, press: '.search-chip .icon-button' },
+    ],
+  },
+  {
     key: 'energy',
     title: 'Power, in watts',
     beats: [
@@ -170,7 +184,9 @@ const RU: readonly TourStep[] = [
   {
     key: 'sites',
     title: 'Выбери место посадки',
-    beats: [{ spot: tag('sites'), panelRight: true, say: 'Начни отсюда: районы Artemis, южный полюс, будущие миссии, автоматические станции и все шесть мест Аполлона. Можно ввести координаты или просто кликнуть в любое место Луны.' }],
+    beats: [
+      { spot: tag('sites'), panelRight: true, say: 'Начни отсюда: районы Artemis, южный полюс, будущие миссии, автоматические станции и все шесть мест Аполлона. Можно ввести координаты или просто кликнуть в любое место Луны.' },
+    ],
   },
   {
     key: 'maps',
@@ -252,6 +268,18 @@ const RU: readonly TourStep[] = [
       { spot: tag('windows'), say: 'Когда миссия может сесть? Эта кнопка открывает окна посадки.', press: tag('windows') },
       { spot: '.mission-filter', inDialog: true, say: 'Укажи, сколько длится миссия и сколько ей нужно света и связи. Я найду на год вперёд все подходящие даты.' },
       { spot: '.month-grid', inDialog: true, say: 'Яркие дни — есть и энергия, и связь. Белая точка значит, что твоя миссия подойдёт, если сесть в этот день. Кликни день, чтобы перейти к нему.' },
+    ],
+  },
+  {
+    key: 'search',
+    title: 'Где можно сесть?',
+    beats: [
+      { spot: tag('site-search'), panelRight: true, say: 'А теперь вопрос наоборот: где миссия вообще может сесть? Эта кнопка ищет по всему южному полюсу. Сейчас открою.', press: tag('site-search') },
+      { spot: '.site-search__presets', inDialog: true, say: 'Цель выбирается в один клик: больше света, лучшая связь, и то и другое, или вечная тень, где прячется лёд. Возьму свет и связь.', press: '.site-search__presets button:nth-child(3)' },
+      { spot: '.site-search__period', inDialog: true, say: 'Искать можно на свои даты, с одного дня по другой, или в среднем за целый год.' },
+      { spot: '.need-field', inDialog: true, say: 'Каждое условие может быть «не меньше», «не больше» или «неважно». Так что можно искать только по свету или только по связи.' },
+      { spot: '.site-search__map', inDialog: true, say: 'Места загораются по мере проверки: оранжевые подходят, тёмно-оранжевые почти, серые нет. Три лучших пронумерованы. А теперь смотри на Луну.', ms: 7000, press: tag('search-show') },
+      { spot: '.search-chip', say: 'Вот они, светятся прямо на рельефе. Нажми на любое место, и полетишь туда. Эта плашка возвращает список, а крестик гасит подсветку.', ms: 7000, press: '.search-chip .icon-button' },
     ],
   },
   {

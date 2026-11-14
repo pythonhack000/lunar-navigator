@@ -55,6 +55,7 @@ export function SitePicker() {
   const lang = useNavigator((s) => s.lang);
   const site = useNavigator((s) => s.site);
   const selectSite = useNavigator((s) => s.selectSite);
+  const setOpenTool = useNavigator((s) => s.setOpenTool);
   const [query, setQuery] = useState('');
   const [openGroup, setOpenGroup] = useState<SiteGroup | null>(() => SITES.find((s) => s.id === site.id)?.group ?? 'South pole');
   const q = query.trim().toLowerCase();
@@ -65,6 +66,7 @@ export function SitePicker() {
   return (
     <section className="panel site-picker" aria-label={t('picker.search')} data-tour="sites">
       <input className="search" type="search" placeholder={t('picker.search')} value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t('picker.search')} />
+      <button type="button" className="ghost-button site-search-open" data-tour="site-search" onClick={() => setOpenTool('search')}>{t('search.open')}</button>
       <div className={isSearching ? 'site-list is-searching' : 'site-list'}>
         {GROUPS.map((group) => {
           const items = matches.filter((s) => s.group === group);

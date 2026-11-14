@@ -1186,3 +1186,85 @@ body.luna-on-left .site-picker { visibility: hidden; }
 .flat-map__zoom button:disabled { opacity: 0.35; cursor: default; }
 .flat-map__help { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); margin: 0; padding: 3px 10px; border-radius: 99px; background: rgba(10, 11, 14, 0.7); font-size: 11.5px; color: var(--muted); white-space: nowrap; pointer-events: none; }
 @media (max-width: 960px) { .flat-map { inset: 12px 12px 64px; } .flat-map__help { display: none; } }
+
+/* Site search: where on the south polar cap a mission with these needs can land. */
+.site-search-open { width: 100%; text-align: left; border-color: rgba(255, 181, 71, 0.35); color: var(--sun); }
+.tool-dialog.site-search { width: min(980px, 100%); }
+.site-search__body { display: grid; grid-template-columns: minmax(0, 1fr) min(440px, 46vh); gap: 18px; align-items: start; }
+.site-search__form { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.site-search__form .tool-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.site-search__form .primary-button { align-self: flex-start; padding: 7px 18px; }
+.site-search__status { font-size: 12.5px; margin: 0; }
+.site-search__bar { height: 3px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.site-search__bar span { display: block; height: 100%; background: var(--sun); transition: width 0.2s; }
+.site-search__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.site-search__list li { display: grid; grid-template-columns: 22px auto 1fr auto; gap: 10px; align-items: center; padding: 5px 6px; border-radius: 8px; font-size: 12.5px; }
+.site-search__list li:hover { background: rgba(255, 255, 255, 0.04); }
+.site-search__rank { font: 600 12px var(--mono); color: var(--sun); text-align: center; }
+.site-search__where { font-size: 12px; }
+.site-search__shares { color: var(--muted); white-space: nowrap; }
+.site-search__shares b { color: var(--text); font-weight: 600; }
+.site-search__list .link-button { color: var(--sun); }
+.site-search__map { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: #000; border: 1px solid var(--line); }
+.site-search__map img { width: 100%; height: 100%; display: block; user-select: none; }
+.search-dot {
+  position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; padding: 0; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35); background: rgba(10, 11, 14, 0.55); cursor: pointer;
+  font: 700 10px var(--mono); color: #000; display: grid; place-items: center;
+}
+.search-dot.is-near { border-color: var(--sun); background: rgba(10, 11, 14, 0.6); }
+.search-dot.is-fit { width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-color: #000; background: var(--sun); box-shadow: 0 0 8px rgba(255, 181, 71, 0.6); }
+.search-dot.is-fit:not(:empty) { width: 18px; height: 18px; margin: -9px 0 0 -9px; }
+.search-dot:hover { transform: scale(1.5); z-index: 2; }
+.search-here { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2px solid #fff; pointer-events: none; }
+.site-search__legend {
+  position: absolute; left: 8px; bottom: 8px; margin: 0; padding: 4px 10px; border-radius: 99px; background: rgba(10, 11, 14, 0.75);
+  display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted);
+}
+.site-search__legend .search-dot { position: static; margin: 0 0 0 6px; cursor: default; }
+.site-search__legend .search-dot:first-child { margin-left: 0; }
+.site-search__legend .search-dot:hover { transform: none; }
+.site-search__note { font-size: 11.5px; line-height: 1.45; margin: 0; }
+@media (max-width: 760px) {
+  .site-search__body { grid-template-columns: 1fr; }
+  .site-search__map { order: -1; width: min(100%, 52vh); justify-self: center; }
+}
+.site-search__period { align-self: flex-start; }
+.site-search__dates { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.site-search__dates .site-search__hint { grid-column: 1 / -1; }
+.site-search__hint { font-size: 11.5px; margin: 0; }
+.site-search__limits { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.need-field { display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'label label' 'ops value'; gap: 4px 8px; align-items: center; }
+.need-field__label { grid-area: label; font-size: 11px; color: var(--muted); }
+.need-field__ops { grid-area: ops; justify-self: start; }
+.need-field__value { grid-area: value; display: flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.need-field__value input {
+  width: 64px; padding: 6px 8px; font-family: var(--mono); font-size: 12.5px; outline: none; color: var(--text);
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line-strong); border-radius: 9px;
+}
+.need-field__value input:focus { border-color: var(--sun); }
+.need-field__value input:disabled { opacity: 0.35; }
+.site-search__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.site-search__clear { font-size: 12.5px; color: var(--muted); margin-left: auto; }
+.site-search__compare { align-self: flex-start; }
+.search-rank {
+  width: 20px; height: 20px; margin-top: -22px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--sun); color: #000; font: 700 11px var(--mono); box-shadow: 0 0 10px rgba(255, 181, 71, 0.7); pointer-events: none;
+}
+.search-chip {
+  position: absolute; top: 64px; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 10px;
+  padding: 6px 8px 6px 14px; border-radius: 99px; background: var(--panel); border: 1px solid rgba(255, 181, 71, 0.35);
+  backdrop-filter: blur(10px); font-size: 12.5px; white-space: nowrap;
+}
+.search-chip .link-button { color: var(--sun); font-weight: 600; }
+.search-chip .icon-button { width: 24px; height: 24px; }
+.search-chip__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sun); }
+.search-chip__dot.is-running { animation: chip-blink 1s ease-in-out infinite; }
+@keyframes chip-blink { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .search-chip__dot.is-running { animation: none; } }
+.flat-map .search-dot { z-index: 2; }
+@media (max-width: 960px) { .search-chip { top: 12px; max-width: calc(100% - 32px); } .search-chip > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; } }
+
+.site-search__presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.site-search__presets .ghost-button { font-size: 12.5px; padding: 6px 12px; }
+.site-search__presets .ghost-button.is-active { border-color: var(--sun); color: var(--sun); background: var(--sun-soft); }

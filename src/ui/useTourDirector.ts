@@ -53,7 +53,7 @@ function rewindClock(to: number, onDone: () => void): () => void {
 
 /** Which phone tab holds what a beat lights up. */
 function tabFor(spot: string | null): MobileTab {
-  if (spot?.includes('"sites"')) return 'list';
+  if (spot?.includes('"sites"') || spot?.includes('"site-search"')) return 'list';
   return spot?.includes('"timeline"') || spot?.includes('"jump') ? 'time' : 'site';
 }
 

@@ -5,7 +5,7 @@ import { useNavigator } from '../state/store';
  * which parts of the app visitors actually try. No personal data; if the script is blocked or not
  * loaded, every call is a no-op.
  */
-export type UsageEvent = 'tour-start' | 'orbit-photo' | 'accuracy-check' | 'stand-at-site' | 'mission-start' | 'site-pick' | 'still-here';
+export type UsageEvent = 'tour-start' | 'orbit-photo' | 'accuracy-check' | 'stand-at-site' | 'mission-start' | 'site-pick' | 'still-here' | 'site-search' | 'site-search-go';
 
 interface Umami {
   track: (event: string, data?: Record<string, string | number>) => void;

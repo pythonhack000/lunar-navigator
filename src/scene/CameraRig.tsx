@@ -6,6 +6,7 @@ import type { Terrain } from '../lib/terrain';
 import { useNavigator } from '../state/store';
 import { unitToLatLon } from '../lib/vec';
 import { fromThree } from './coords';
+import { interceptPick } from './pickInterceptor';
 import {
   approach,
   clonePose,
@@ -131,6 +132,7 @@ export function CameraRig({ lat, lon, sunDir, isGlobeView, flyNonce, terrain, re
     const raycaster = new Raycaster();
 
     const pickAt = (clientX: number, clientY: number) => {
+      if (interceptPick(clientX, clientY)) return;
       const rect = el.getBoundingClientRect();
       const ndc = new Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
       raycaster.setFromCamera(ndc, camera);

@@ -29,6 +29,9 @@ import { GroundArrows } from './ui/GroundArrows';
 import { GroundHud } from './ui/GroundHud';
 import { GroundTalk } from './ui/GroundTalk';
 import { FlatMap } from './ui/FlatMap';
+import { SiteSearch } from './ui/SiteSearch';
+import { SearchChip } from './ui/SearchChip';
+import { useSiteSearchRunner } from './hooks/useSiteSearchRunner';
 
 type Props = { loaded: LoadedTerrain };
 
@@ -48,7 +51,11 @@ function Navigator({ loaded }: Props) {
   const mobileTab = useNavigator((s) => s.mobileTab);
   const graphicsTier = useNavigator((s) => s.graphicsTier);
   const isFlat = graphicsTier === 'none';
+  const isSearchOpen = useNavigator((s) => s.openTool === 'search');
+  const setOpenTool = useNavigator((s) => s.setOpenTool);
+  const closeSearch = useCallback(() => setOpenTool(null), [setOpenTool]);
   useLangScramble();
+  useSiteSearchRunner(loaded.terrain, loaded.manifest.polar.rhoMax);
   const markTip = useNavigator((s) => s.markTip);
   const handlePick = useCallback(
     (lat: number, lon: number) => {
@@ -88,6 +95,7 @@ function Navigator({ loaded }: Props) {
           </>
         )}
         <NextTip />
+        <SearchChip />
       </div>
       <div className="hud">
         <header className="brand">
@@ -100,6 +108,7 @@ function Navigator({ loaded }: Props) {
         <ComparePanel terrain={loaded.terrain} windowStart={analysis.windowStart} />
         <Assistant analysis={analysis} score={score} terrain={loaded.terrain} windowStart={analysis.windowStart} polarRhoMax={loaded.manifest.polar.rhoMax} />
         {isValidationOpen && <ValidationPanel terrain={loaded.terrain} onClose={closeValidation} />}
+        {isSearchOpen && <SiteSearch polar={loaded.manifest.polar} onClose={closeSearch} />}
         <footer className="panel dock" data-tour="timeline">
           <TimeControls />
           <TimelineBar timeline={analysis.timeline} link={analysis.link} time={time} onSeek={setTime} />

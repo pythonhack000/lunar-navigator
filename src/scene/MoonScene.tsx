@@ -21,6 +21,7 @@ import type { CameraFocus } from './globeCamera';
 import { createSky, updateSky, type SkyState } from './sky';
 import { Terrain as TerrainMesh, type MoonLighting } from './Terrain';
 import { SiteMarker } from './SiteMarker';
+import { SearchMarks } from './SearchMarks';
 import { Stars } from './Stars';
 import { Sun } from './Sun';
 
@@ -113,6 +114,7 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOute
         />
         <Earth sky={sky} radius={EARTH_RADIUS_KM / MOON_RADIUS_KM} />
       </Suspense>
+      <SearchMarks />
       <SiteMarker lat={site.lat} lon={site.lon} label={siteLabel(site, lang)} isPrimary />
       {others.map((c) => (
         <SiteMarker key={siteKey(c)} lat={c.lat} lon={c.lon} label={siteLabel(c, lang)} isPrimary={false} />

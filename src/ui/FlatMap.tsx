@@ -19,7 +19,9 @@ import {
 import { pickTier, probeGpu } from '../lib/graphicsTier';
 import type { PolarTile } from '../lib/loadTerrain';
 import { shadedMap } from '../lib/shadedRelief';
+import { useSiteSearch } from '../state/siteSearchStore';
 import { siteKey, useNavigator, type SelectedSite } from '../state/store';
+import { goToHit, hitTone } from './searchActions';
 
 interface FlatMapProps {
   /** The south polar map that reaches furthest north (60°S). */
@@ -86,6 +88,7 @@ export function FlatMap({ polar, inner, onPick }: FlatMapProps) {
   const introDone = useNavigator((s) => s.introDone);
   const slowLink = useNavigator((s) => s.slowLink);
   const setGraphicsTier = useNavigator((s) => s.setGraphicsTier);
+  const searchHits = useSiteSearch((s) => s.hits);
   const [view, setView] = useState<View>(() => (site.lat < polar.edgeLat ? 'pole' : 'globe'));
   const [mapView, setMapView] = useState<MapView>(HOME_VIEW);
   const [isDragging, setDragging] = useState(false);
@@ -174,6 +177,10 @@ export function FlatMap({ polar, inner, onPick }: FlatMapProps) {
     .map((p, i) => ({ place: p, at: toMap(p.lat, p.lon), isPrimary: i === 0 }))
     .filter((p): p is { place: SelectedSite; at: MapPoint; isPrimary: boolean } => p.at !== null)
     .map((p) => ({ ...p, screen: toScreen(p.at, base, mapView, w, h) }));
+  const searchDots = searchHits
+    .map((hit) => ({ hit, at: toMap(hit.lat, hit.lon) }))
+    .filter((d): d is { hit: (typeof searchHits)[number]; at: MapPoint } => d.at !== null)
+    .map((d) => ({ ...d, screen: toScreen(d.at, base, mapView, w, h) }));
   // Every picture is scaled about the frame centre, so each needs that point in its own box.
   const placed = (box: { left: number; top: number; width: number; height: number }) => ({
     left: box.left,
@@ -225,6 +232,16 @@ export function FlatMap({ polar, inner, onPick }: FlatMapProps) {
         {w > 0 && view === 'pole' && inner && (
           <img className="flat-map__inner" src={innerSrc} alt="" style={placed(innerBox)} draggable={false} />
         )}
+        {searchDots.map(({ hit, screen }) => (
+          <button
+            key={`${hit.lat}:${hit.lon}`}
+            type="button"
+            className={`search-dot is-${hitTone(hit)}`}
+            style={{ left: screen.x, top: screen.y }}
+            aria-label={`${hit.lat.toFixed(2)}, ${hit.lon.toFixed(2)}`}
+            onClick={() => goToHit(hit)}
+          />
+        ))}
         {pins.map(({ place, screen, isPrimary }) => (
           <span key={siteKey(place)} className={isPrimary ? 'flat-map__pin is-primary' : 'flat-map__pin'} style={{ left: screen.x, top: screen.y }}>
             <span className="flat-map__label">{siteLabel(place, lang)}</span>

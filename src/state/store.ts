@@ -24,7 +24,7 @@ export interface Scenario extends SelectedSite {
 }
 
 /** The windows opened from the site panel; LUNA's tour opens them too. */
-export type ToolName = 'windows' | 'energy' | 'whatIf' | 'orbit';
+export type ToolName = 'windows' | 'energy' | 'whatIf' | 'orbit' | 'search';
 
 /** The part shown under the Moon on a phone. */
 export type MobileTab = 'site' | 'time' | 'list';

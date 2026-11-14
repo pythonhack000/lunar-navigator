@@ -52,6 +52,8 @@ const HOP_MS = 700;
 const RANK_STEP_MS = 3 * HOUR_MS;
 /** Pace of LUNA's words appearing one after another. */
 const WORD_MS = 38;
+/** Room left above the question when a new answer scrolls into view. */
+const ANSWER_TOP_GAP_PX = 8;
 /** The greeting waits for LUNA's fly-in (index.css) to finish. */
 const GREET_DELAY_MS = 1100;
 
@@ -160,8 +162,27 @@ export function Assistant({ analysis, score, terrain, windowStart, polarRhoMax }
     if (isTourRunning) store.setGroundSpeech(line ? { text: line, point: linePoint } : null);
   }, [isTourRunning, line, linePoint]);
 
+  // A new answer is read from its start: the question and the first lines of the reply come into
+  // view, never the end of a long reply with its beginning scrolled away above.
+  const shownCount = useRef(0);
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
+    const list = listRef.current;
+    if (!list) return;
+    const items = [...list.querySelectorAll<HTMLElement>('.luna-msg')];
+    const seen = shownCount.current <= items.length ? shownCount.current : 0;
+    shownCount.current = items.length;
+    const last = items.at(-1);
+    const bottom = list.scrollHeight - list.clientHeight;
+    if (!last || isThinking || !last.classList.contains('luna-msg--luna')) {
+      list.scrollTo({ top: bottom, behavior: 'smooth' });
+      return;
+    }
+    // The reader starts at the first of the newly arrived replies, with the question just above it.
+    const firstNew = items[seen] ?? last;
+    const before = items[items.indexOf(firstNew) - 1];
+    const anchor = before?.classList.contains('luna-msg--user') ? before : firstNew;
+    const top = list.scrollTop + anchor.getBoundingClientRect().top - list.getBoundingClientRect().top - ANSWER_TOP_GAP_PX;
+    list.scrollTo({ top: Math.min(Math.max(0, top), bottom), behavior: 'smooth' });
   }, [messages, isThinking]);
 
   // A new language starts a fresh conversation in that language.

@@ -10,7 +10,9 @@ import type { Terrain } from '../lib/terrain';
 import { TIER_SETTINGS, tierOrLow } from '../lib/graphicsTier';
 import { siteLabel } from '../i18n';
 import { siteKey, useNavigator, type SelectedSite } from '../state/store';
+import { unitToLatLon } from '../lib/vec';
 import { AdaptiveResolution } from './AdaptiveResolution';
+import { fromThree } from './coords';
 import { FrameRateWatch } from './FrameRateWatch';
 import { CameraRig } from './CameraRig';
 import { Earth } from './Earth';
@@ -50,16 +52,30 @@ function SkySync({ sky }: { sky: SkyState }) {
 }
 
 /** Close to the ground the near plane must shrink, or nearby terrain would be clipped away. */
-function NearPlaneTuning() {
+/** Never closer than this, in Moon radii (about 35 m): the depth buffer's precision floor. */
+const NEAR_MIN = 2e-5;
+const NEAR_MAX = 0.05;
+/** The near plane sits at this share of the camera's height above the ground below it. */
+const NEAR_SHARE = 0.25;
+const MOON_RADIUS_M = MOON_RADIUS_KM * 1000;
+
+/**
+ * Keeps the near plane a quarter of the way down to the real ground under the camera. The height
+ * is measured above the terrain, not the bare sphere: at the south pole the ground stands up to
+ * 5 km above it, and a plane set from the sphere cut away the ground at the visitor's feet. On the
+ * surface the ground camera sets the near plane itself.
+ */
+function NearPlaneTuning({ terrain }: { terrain: Terrain }) {
   const camera = useThree((s) => s.camera);
   useFrame(() => {
-    const altitude = Math.max(camera.position.length() - 1, 1e-4);
-    if (camera instanceof PerspectiveCamera) {
-      const near = Math.min(0.05, Math.max(2e-5, altitude * 0.25));
-      if (Math.abs(camera.near - near) / near > 0.05) {
-        camera.near = near;
-        camera.updateProjectionMatrix();
-      }
+    if (!(camera instanceof PerspectiveCamera) || useNavigator.getState().isGroundView) return;
+    const { lat, lon } = unitToLatLon(fromThree(camera.position.clone().normalize()));
+    const groundRadius = 1 + (terrain.heightAt(lat, lon) * useNavigator.getState().relief) / MOON_RADIUS_M;
+    const altitude = Math.max(camera.position.length() - groundRadius, NEAR_MIN);
+    const near = Math.min(NEAR_MAX, Math.max(NEAR_MIN, altitude * NEAR_SHARE));
+    if (Math.abs(camera.near - near) / near > 0.05) {
+      camera.near = near;
+      camera.updateProjectionMatrix();
     }
   });
   return null;
@@ -98,7 +114,7 @@ export const MoonScene = memo(function MoonScene({ heightRange, polar, polarOute
       <AdaptiveResolution />
       <FrameRateWatch />
       <SkySync sky={sky} />
-      <NearPlaneTuning />
+      <NearPlaneTuning terrain={terrain} />
       <Stars radius={STAR_RADIUS} />
       <Sun sky={sky} distance={SUN_DISTANCE} discRadius={SUN_DISTANCE * Math.tan((SUN_RADIUS_DEG * Math.PI) / 180)} />
       <Suspense fallback={null}>

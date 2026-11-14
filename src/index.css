@@ -1,0 +1,1188 @@
+:root {
+  --bg: #000;
+  --panel: rgba(10, 11, 14, 0.74);
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --text: #e9ebee;
+  --muted: #8b919a;
+  --faint: #5b6068;
+  --sun: #ffb547;
+  --sun-soft: rgba(255, 181, 71, 0.14);
+  --earth: #7db4ff;
+  --terrain: #2a2d33;
+  --terrain-edge: #6c727c;
+  --error: #ff8a7a;
+  --radius: 14px;
+  --font: 'Manrope', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font: 14px/1.45 var(--font); -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; color: inherit; }
+h1, h2, h3, p { margin: 0; }
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Layout */
+.app { position: fixed; inset: 0; overflow: hidden; }
+.stage { position: absolute; inset: 0; }
+.stage canvas { cursor: grab; touch-action: none; }
+.stage canvas:active { cursor: grabbing; }
+.hud {
+  position: absolute; inset: 0; pointer-events: none; padding: 16px;
+  display: grid; gap: 16px;
+  grid-template-columns: 290px minmax(0, 1fr) 390px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.hud > * { pointer-events: auto; }
+.brand { grid-column: 1; grid-row: 1; pointer-events: none; }
+.site-picker { grid-column: 1; grid-row: 2; min-height: 0; }
+.site-panel { grid-column: 3; grid-row: 1 / 3; min-height: 0; overflow-y: auto; }
+.compare { grid-column: 2; grid-row: 2; align-self: end; justify-self: center; max-width: 640px; width: 100%; }
+.dock { grid-column: 1 / 4; grid-row: 3; }
+
+.panel {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  backdrop-filter: blur(14px) saturate(120%); -webkit-backdrop-filter: blur(14px) saturate(120%);
+  padding: 14px;
+}
+
+.brand h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.02em; }
+.brand p { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+
+h3 { font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+.muted { color: var(--muted); font-size: 12.5px; }
+.hint { color: var(--faint); font-size: 12px; margin-bottom: 8px; }
+
+/* Controls */
+.ghost-button, .segmented button, .search, .coord-form input, .date-field {
+  border: 1px solid var(--line-strong); background: rgba(255, 255, 255, 0.03); border-radius: 9px;
+}
+.ghost-button { padding: 6px 12px; cursor: pointer; white-space: nowrap; transition: border-color 0.15s, background 0.15s; }
+.ghost-button:hover:not(:disabled) { border-color: var(--sun); background: var(--sun-soft); }
+.ghost-button:disabled { opacity: 0.4; cursor: not-allowed; }
+.link-button { all: unset; cursor: pointer; }
+.link-button:hover { color: var(--sun); }
+.icon-button { all: unset; cursor: pointer; color: var(--faint); padding: 0 6px; font-size: 16px; }
+.icon-button:hover { color: var(--text); }
+:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
+
+/* Site picker */
+.site-picker { display: flex; flex-direction: column; gap: 12px; }
+.search { width: 100%; padding: 8px 11px; outline: none; }
+.search:focus { border-color: var(--sun); }
+/* An accordion: closed group headers never scroll away; the open group's sites scroll inside it. */
+.site-list { display: flex; flex-direction: column; min-height: 0; flex: 1; margin: 0 -6px; padding: 0 6px; overflow: hidden; }
+.site-group { flex: none; display: flex; flex-direction: column; min-height: 0; border-top: 1px solid var(--line); }
+.site-group:first-child { border-top: 0; }
+.site-group.is-open { flex: 0 1 auto; }
+.site-group__items { overflow-y: auto; min-height: 0; padding-bottom: 6px; }
+.site-list.is-searching { display: block; overflow-y: auto; }
+.site-list.is-searching .site-group__items { overflow: visible; }
+.site-item {
+  display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 9px;
+  padding: 7px 9px; cursor: pointer; border-left: 2px solid transparent;
+}
+.site-item:hover { background: rgba(255, 255, 255, 0.04); }
+.site-item.is-active { background: var(--sun-soft); border-left-color: var(--sun); }
+.site-item__name { display: block; font-weight: 600; }
+.site-item__note { display: block; color: var(--muted); font-size: 12px; }
+.custom-site { border-top: 1px solid var(--line); padding-top: 12px; }
+.coord-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
+.coord-form label span { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+.coord-form input { width: 100%; padding: 6px 8px; font-family: var(--mono); font-size: 12.5px; outline: none; }
+.form-error { grid-column: 1 / -1; color: var(--error); font-size: 12px; }
+
+/* Site panel */
+.site-panel { display: flex; flex-direction: column; gap: 10px; }
+.site-panel__head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.site-panel__head h2 { font-size: 20px; font-weight: 700; }
+.readouts { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; row-gap: 0; }
+/* Subgrid rows line the Sun and Earth cards up line for line, whatever wraps in either one. */
+.readout {
+  display: grid; grid-row: span 5; grid-template-rows: subgrid; align-content: start;
+  border: 1px solid var(--line); border-radius: 11px; padding: 11px; background: rgba(255, 255, 255, 0.02);
+  font-variant-numeric: tabular-nums;
+}
+.readout__head { display: flex; justify-content: space-between; align-items: center; }
+.readout__title { font-weight: 700; }
+.readout--sun .readout__title { color: var(--sun); }
+.readout--earth .readout__title { color: var(--earth); }
+.pill { font-size: 11px; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 99px; padding: 1px 8px; }
+.pill--up { color: var(--text); border-color: currentColor; }
+.readout__big { font: 600 26px/1.1 var(--mono); margin: 6px 0 4px; }
+.readout__big small { font: 500 11px var(--font); color: var(--muted); }
+.readout__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 0 0 8px; }
+.readout__grid dt, .month__grid dt { font-size: 10.5px; color: var(--faint); }
+.readout__grid dd, .month__grid dd { margin: 0; font-family: var(--mono); font-size: 12.5px; }
+.readout__status { font-weight: 600; font-size: 13px; line-height: 1.35; min-height: 2.7em; margin: 0; }
+.readout__detail { color: var(--muted); font-size: 11.5px; line-height: 1.35; margin: 2px 0 0; }
+
+.horizon-chart { margin: 0; }
+.horizon-chart svg { width: 100%; height: auto; display: block; }
+.horizon-chart .grid line { stroke: var(--line); }
+.horizon-chart text { fill: var(--faint); font: 10px var(--mono); }
+.horizon-chart .compass { fill: var(--muted); font-weight: 600; }
+.terrain { fill: var(--terrain); stroke: var(--terrain-edge); stroke-width: 1; }
+.track { fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.track--sun { stroke: var(--sun); opacity: 0.75; }
+.track--earth { stroke: var(--earth); opacity: 0.5; stroke-width: 1.2; }
+.disc--sun { fill: #fff3dc; stroke: var(--sun); stroke-width: 2; filter: drop-shadow(0 0 6px var(--sun)); }
+.disc--earth { fill: #1c3f73; stroke: var(--earth); stroke-width: 2; }
+.disc-ghost { fill: none; stroke-width: 1.5; stroke-dasharray: 3 3; opacity: 0.8; }
+.disc-ghost--sun { stroke: var(--sun); }
+.disc-ghost--earth { stroke: var(--earth); }
+figcaption { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
+.legend { font-size: 11px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.legend::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.legend--sun::before { background: var(--sun); }
+.legend--earth::before { background: var(--earth); }
+.legend__now { font: 600 10px var(--mono); color: #0b0c0f; background: var(--earth); border-radius: 3px; padding: 0 3px; margin-left: 2px; }
+.legend--link { cursor: help; }
+.legend--link::before { background: linear-gradient(90deg, var(--earth) 33%, #5a8fd6 33% 66%, #a9cdff 66%); border-radius: 2px; }
+.legend--terrain::before { background: var(--terrain); border: 1px solid var(--terrain-edge); border-radius: 2px; }
+
+.month { border-top: 1px solid var(--line); padding-top: 10px; }
+.score { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; border-top: 1px solid var(--line); padding-top: 10px; }
+.score__total { display: grid; justify-items: start; line-height: 1; }
+.score__total .muted { font-size: 11px; margin-bottom: 6px; }
+.score__total b { font: 600 30px var(--mono); color: var(--sun); }
+.score__total small { color: var(--faint); font: 11px var(--mono); margin-top: 2px; }
+.score__factors { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 14px; margin: 0; }
+.score__factors > div { display: grid; grid-template-columns: 1fr auto; gap: 3px 6px; font-size: 11.5px; }
+.score__factors dt { color: var(--muted); }
+.score__factors dd { margin: 0; font-family: var(--mono); color: var(--text); white-space: nowrap; }
+.score__factors dt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.score__bar { grid-column: 1 / -1; height: 3px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.score__bar span { display: block; height: 100%; background: var(--sun); }
+.validation { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow: auto; }
+.validation__table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
+.validation__table th, .validation__table td { text-align: left; padding: 10px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+.validation__table thead th { color: var(--faint); font-weight: 500; font-size: 11.5px; border-top: 0; }
+.validation__table small { display: block; font-size: 11px; margin-top: 3px; }
+.validation__table td:nth-child(2), .validation__table td:nth-child(3) { font-family: var(--mono); white-space: nowrap; }
+.validation__table td small { font-family: var(--font, inherit); color: var(--faint); }
+.validation__table td.is-match small, .validation__table td.is-close small { color: var(--sun); }
+.validation__note { font-size: 12px; margin-top: 12px; line-height: 1.5; }
+.month__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0; }
+.month__grid dd { font-size: 15px; }
+
+/* Compare */
+.compare table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.compare th, .compare td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.compare thead th { color: var(--faint); font-weight: 500; font-size: 11px; }
+.compare th:first-child { text-align: left; }
+.compare td { font-family: var(--mono); }
+.compare tr.is-current th { color: var(--sun); }
+.compare td.is-best { color: var(--sun); font-weight: 600; }
+
+/* Dock */
+.dock { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; }
+.time-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.play-button {
+  width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--sun); color: #000; cursor: pointer;
+  display: grid; place-items: center;
+}
+.play-button svg { width: 14px; height: 14px; fill: currentColor; }
+.segmented { display: inline-flex; gap: 4px; }
+.segmented button { padding: 5px 10px; cursor: pointer; font-size: 12px; }
+.segmented button.is-active { border-color: var(--sun); color: var(--sun); }
+.date-field { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; }
+.date-field input { background: none; border: 0; outline: none; font-family: var(--mono); font-size: 12.5px; }
+.date-field__zone { font-size: 11px; color: var(--faint); }
+.time-readout { margin-left: auto; font-family: var(--mono); color: var(--muted); font-size: 12.5px; }
+
+.timeline { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: start; }
+.timeline__labels { display: flex; flex-direction: column; gap: 6px; padding-top: 1px; }
+.timeline svg { width: 100%; height: 70px; display: block; cursor: ew-resize; touch-action: none; }
+.row-bg { fill: rgba(255, 255, 255, 0.04); }
+.row--sun rect:not(.row-bg) { fill: var(--sun); }
+.row--earth rect:not(.row-bg) { fill: var(--earth); }
+/* DSN complexes: shades of the Earth colour, so the link reads as part of "talking to Earth". */
+.dsn rect { fill: var(--earth); }
+.dsn--madrid rect { fill: #5a8fd6; }
+.dsn--canberra rect { fill: #a9cdff; }
+.dsn text { fill: #0b0c0f; font: 600 10px var(--mono); pointer-events: none; }
+.day-ticks line { stroke: var(--faint); }
+.day-ticks text { fill: var(--faint); font: 10px var(--mono); }
+.cursor { stroke: #fff; stroke-width: 2; vector-effect: non-scaling-stroke; }
+
+.stage-controls {
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 2;
+  display: flex; gap: 8px; align-items: center;
+}
+.view-toggle {
+  padding: 7px 14px; border-radius: 99px; cursor: pointer; font-size: 12.5px; font-weight: 600;
+  background: var(--panel); border: 1px solid var(--line-strong); backdrop-filter: blur(10px);
+}
+.relief-control {
+  align-items: center; padding: 3px 4px 3px 12px; border-radius: 99px;
+  background: var(--panel); border: 1px solid var(--line-strong); backdrop-filter: blur(10px);
+}
+.relief-control span { font-size: 12px; color: var(--muted); margin-right: 4px; }
+.relief-control button { border-radius: 99px; padding: 3px 9px; }
+.view-toggle:hover { border-color: var(--sun); color: var(--sun); }
+
+/* Globe labels */
+.marker-label {
+  transform: translateY(-22px); white-space: nowrap; pointer-events: none;
+  font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6); border: 1px solid var(--line-strong); color: var(--muted);
+}
+.marker-label--primary { color: var(--text); border-color: var(--sun); }
+
+.scene-error {
+  position: absolute; inset: 0; display: grid; place-content: center; gap: 8px; text-align: center; padding: 24px;
+}
+
+/* Splash */
+.splash { height: 100%; display: grid; place-content: center; text-align: center; gap: 10px; }
+.splash h1 { font-size: 18px; }
+.splash p { color: var(--muted); }
+
+/* Phones and small tablets: the globe on top, panels below in a scrolling column. */
+@media (max-width: 960px) {
+  .app { position: static; overflow: visible; }
+  .stage { position: sticky; top: 0; height: 52vh; z-index: 0; }
+  .hud { position: relative; display: flex; flex-direction: column; padding: 16px; gap: 12px; background: var(--bg); }
+  .brand { order: -1; }
+  .site-panel { order: 1; overflow: visible; }
+  .dock { order: 2; }
+  .compare { order: 3; overflow-x: auto; }
+  .site-picker { order: 4; }
+  .site-list { max-height: 320px; }
+  .readouts { grid-template-columns: 1fr; row-gap: 10px; }
+  .month__grid { grid-template-columns: repeat(2, 1fr); }
+  .timeline { grid-template-columns: 1fr; }
+  .timeline__labels { flex-direction: row; gap: 14px; }
+  .time-readout { margin-left: 0; width: 100%; }
+}
+
+/* Camera status */
+.altitude-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 99px;
+  background: var(--panel); border: 1px solid var(--line-strong); backdrop-filter: blur(10px);
+  font: 600 12.5px var(--mono); min-width: 92px; justify-content: center;
+}
+.altitude-chip svg { width: 11px; height: 11px; fill: var(--sun); }
+
+/* Tour spotlight */
+.tour-highlight {
+  position: relative; z-index: 5;
+  box-shadow: 0 0 0 2px var(--sun), 0 0 0 9999px rgba(0, 0, 0, 0.45) !important;
+  border-radius: var(--radius); transition: box-shadow 0.25s;
+}
+
+/* LUNA assistant */
+.luna { position: fixed; right: 430px; bottom: 170px; z-index: 30; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; pointer-events: none; }
+.luna > * { pointer-events: auto; }
+.luna-launcher {
+  width: 58px; height: 58px; border-radius: 50%; border: 1px solid var(--line-strong); cursor: pointer;
+  background: radial-gradient(circle at 35% 30%, #23262d, #0b0c0f); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); padding: 6px;
+}
+.luna-launcher:hover { border-color: var(--sun); }
+/* LUNA waits off stage until the camera lands, then flies in and, on a first visit, waves hello. */
+.luna:not(.is-arrived) .luna-launcher { visibility: hidden; }
+.luna.is-arrived .luna-launcher { animation: luna-arrive 1s cubic-bezier(0.2, 0.9, 0.3, 1.15) both; }
+.luna.is-arrived .luna-launcher.is-waving { animation: luna-wave 1.6s ease-in-out infinite; }
+.luna-greet { width: 300px; transform-origin: bottom right; animation: luna-greet-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
+.luna-greet h3 { font-size: 15px; margin: 0 0 6px; }
+.luna-greet p { color: var(--muted); font-size: 13px; }
+@keyframes luna-arrive {
+  from { opacity: 0; transform: translate(160px, -260px) rotate(-30deg) scale(0.4); }
+  70% { opacity: 1; transform: translate(0, 10px) rotate(8deg) scale(1.06); }
+  to { transform: none; }
+}
+@keyframes luna-wave { 0%, 60%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(-12deg); } 20%, 40% { transform: rotate(12deg); } }
+@keyframes luna-greet-in { from { opacity: 0; transform: translateY(10px) scale(0.92); } }
+@media (prefers-reduced-motion: reduce) { .luna-launcher, .luna-greet { animation: none !important; } }
+.luna-panel { width: 340px; max-height: 60vh; display: flex; flex-direction: column; gap: 10px; }
+.luna-head-row { display: flex; align-items: center; gap: 10px; }
+.luna-head-row .luna-avatar { width: 34px; height: 34px; }
+.luna-head-row > div { flex: 1; }
+.luna-avatar { width: 100%; height: 100%; display: block; }
+.luna-head { fill: #e9ebee; }
+.luna-visor { fill: #0b0c0f; }
+.luna-eye { fill: var(--sun); }
+.luna-neck { fill: #8b919a; }
+.luna-antenna { stroke: #8b919a; stroke-width: 2.5; stroke-linecap: round; }
+.luna-beacon { fill: var(--sun); }
+.luna-avatar.is-talking .luna-eye { animation: luna-blink 1.2s ease-in-out infinite; }
+.luna-avatar.is-talking .luna-beacon { animation: luna-pulse 1s ease-in-out infinite; }
+@keyframes luna-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes luna-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+@media (prefers-reduced-motion: reduce) { .luna-avatar * { animation: none !important; } }
+.luna-tour h3 { color: var(--text); font-size: 15px; margin-bottom: 6px; }
+.luna-tour p { color: var(--muted); font-size: 13px; }
+.luna-tour-nav { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.luna-tour-nav .muted { margin-right: auto; }
+.primary-button { padding: 6px 14px; border-radius: 9px; border: 0; background: var(--sun); color: #000; font-weight: 700; cursor: pointer; }
+.luna-messages { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+.luna-msg { border-radius: 11px; padding: 9px 11px; font-size: 13px; }
+.luna-msg p + p { margin-top: 5px; }
+.luna-msg--luna { background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); }
+.luna-msg--user { align-self: flex-end; background: var(--sun-soft); border: 1px solid rgba(255, 181, 71, 0.35); }
+.luna-thinking { font-size: 12px; }
+.luna-picks { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.luna-picks li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; }
+.luna-picks .link-button { color: var(--sun); font-size: 12px; }
+.mono { font-family: var(--mono); }
+.luna-chips { display: flex; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+.luna-chips button { white-space: nowrap; }
+.luna-chips .luna-chips__more { border-style: dashed; color: var(--muted); }
+.luna-messages { min-height: 160px; }
+.luna-chips button {
+  font-size: 12px; padding: 5px 10px; border-radius: 99px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line-strong);
+}
+.luna-chips button:hover:not(:disabled) { border-color: var(--sun); color: var(--sun); }
+.luna-chips button:disabled { opacity: 0.4; cursor: wait; }
+@media (max-width: 960px) {
+  .luna { right: 12px; bottom: 12px; }
+  .luna-panel { width: calc(100vw - 24px); }
+  .stage-controls { flex-wrap: wrap; justify-content: center; width: calc(100% - 32px); }
+}
+
+/* Minimal panels: collapsible groups and details */
+.group-toggle { all: unset; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 9px 2px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.site-group.is-open .group-toggle { color: var(--text); }
+.group-toggle:hover { color: var(--text); }
+.group-count { font: 500 10.5px var(--mono); color: var(--faint); }
+.chevron { margin-left: auto; }
+.custom-site summary { cursor: pointer; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.custom-site[open] summary { margin-bottom: 8px; }
+.month__summary { display: flex; gap: 4px 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.month__summary b { color: var(--text); font-family: var(--mono); font-size: 15px; }
+.month__extremes { margin: 4px 0 0; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.month__actions { display: flex; align-items: center; margin-top: 10px; }
+.month__grid { margin-top: 10px; grid-template-columns: repeat(2, 1fr); }
+.ghost-button.is-on { border-color: var(--sun); color: var(--sun); }
+.readout__grid { margin: 8px 0 0; opacity: 0.85; }
+
+/* Stage controls: two rows on narrow screens */
+.stage-controls { flex-direction: column; align-items: center; }
+.stage-controls__row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.pill-group { align-items: center; padding: 3px 4px 3px 12px; border-radius: 99px; background: var(--panel); border: 1px solid var(--line-strong); backdrop-filter: blur(10px); }
+.pill-group span { font-size: 12px; color: var(--muted); margin-right: 4px; }
+.pill-group button { border-radius: 99px; padding: 3px 9px; }
+.lang-toggle { font: 700 12px var(--mono); padding: 7px 11px; }
+.layer-note { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); padding: 5px 12px; border-radius: 99px; background: var(--panel); border: 1px solid var(--line); }
+.layer-note .link-button { color: var(--sun); }
+.layer-key { width: 42px; height: 8px; border-radius: 4px; }
+.layer-key--light { background: linear-gradient(90deg, #0a1250, #ffb547, #fff4d9); }
+.layer-key--ice { background: #59d9ff; }
+.layer-key--slope { background: linear-gradient(90deg, #40cc73 0 45%, #ffb547 55% 75%, #f2453a 85%); }
+
+/* Landing calendar */
+.modal-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.55); display: grid; place-items: center; padding: 16px; }
+.calendar { width: min(520px, 100%); max-height: 88vh; display: flex; flex-direction: column; gap: 10px; background: #0b0c0f; }
+.calendar__head { display: flex; justify-content: space-between; align-items: center; }
+.calendar__head h2 { font-size: 17px; }
+.calendar__nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 600; text-transform: capitalize; }
+.calendar__legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11.5px; color: var(--muted); }
+.cal-key::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.cal-key--both::before, .cal-cell--both { background: #fff1cf; fill: #fff1cf; }
+.cal-key--sun::before, .cal-cell--sun { background: #b97c22; fill: #b97c22; }
+.cal-key--earth::before, .cal-cell--earth { background: #2f5d99; fill: #2f5d99; }
+.cal-key--none::before, .cal-cell--none { background: #1a1c21; fill: #1a1c21; }
+.cal-cell { cursor: pointer; }
+.cal-cell:hover { fill: var(--sun); }
+.calendar__grid { overflow: auto; }
+.cal-label { fill: var(--faint); font: 9px var(--mono); }
+.cal-label.is-month { fill: var(--text); font-weight: 600; }
+
+/* LUNA extras */
+.is-revealing .luna-word { display: inline-block; animation: luna-word-in 0.42s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+@keyframes luna-word-in { from { opacity: 0; filter: blur(5px); transform: translateY(3px); } }
+@media (prefers-reduced-motion: reduce) { .is-revealing .luna-word { animation: none; } }
+.luna-add { font-size: 12px; color: var(--sun); margin-top: 8px; }
+.icon-button.is-on { color: var(--sun); }
+.luna-panel { max-height: 52vh; width: 330px; }
+
+/* Month calendar */
+.calendar__hint { font-size: 12px; }
+.month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.month-grid__weekday { font-size: 10.5px; color: var(--faint); text-align: center; text-transform: capitalize; }
+.day-cell {
+  display: flex; flex-direction: column; gap: 3px; padding: 6px 6px 5px; border-radius: 9px; cursor: pointer; text-align: left;
+  border: 1px solid var(--line); color: var(--text);
+  background: color-mix(in srgb, var(--sun) calc(var(--both) * 55%), #15171b);
+}
+.day-cell:hover { border-color: var(--sun); }
+.day-cell.is-best { box-shadow: 0 0 0 2px var(--sun); }
+.day-cell__num { font: 600 12px var(--mono); }
+.day-cell__both { font: 500 10.5px var(--mono); color: rgba(255, 255, 255, 0.85); }
+.day-cell__bars { display: flex; flex-direction: column; gap: 2px; }
+.bar { display: block; height: 3px; border-radius: 2px; }
+.bar--sun { background: #ffcf7a; }
+.bar--earth { background: var(--earth); }
+.cal-key--both::before { background: var(--sun); }
+.cal-key--sun::before { background: #ffcf7a; }
+
+/* Compact, steady top bar: the layer legend floats instead of pushing anything down */
+.stage-controls { position: absolute; }
+/* Centred in the gap between the side panels (see .hud columns), so longer labels never run under them. */
+@media (min-width: 961px) {
+  .stage-controls { left: calc(16px + 290px + 16px); right: calc(16px + 390px + 16px); transform: none; }
+}
+.layer-note { position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); white-space: nowrap; }
+
+/* LUNA sits at the top right of the 3D view, clear of the panels and the comparison */
+.luna { right: 430px; top: 92px; bottom: auto; flex-direction: column-reverse; align-items: flex-end; }
+/* Below the launcher, reaching down to just above the timeline dock (~340px of chrome above and below). */
+/* The chat reaches down to just above the timeline; the conversation shrinks (and scrolls) to make
+   room for the questions, so nothing ever spills out of the panel. */
+.luna-panel { height: max(320px, calc(100vh - 360px)); max-height: none; overflow: hidden; }
+.luna-panel .luna-messages { flex: 1; min-height: 0; }
+/* A tour step is a few sentences: the panel fits them instead of leaving a tall empty space. */
+.luna-panel.is-tour { height: auto; }
+.luna-panel .luna-tour p { font-size: 14px; line-height: 1.55; }
+@media (max-width: 960px) { .luna { top: auto; bottom: 12px; right: 12px; flex-direction: column; } .luna-panel { height: auto; max-height: 60vh; } }
+
+/* Comparison */
+.compare { max-width: 680px; }
+.compare__head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+.compare__head h3 { margin: 0; }
+.compare__periods button { font-size: 11.5px; padding: 3px 9px; }
+.compare__range { display: flex; gap: 12px; margin-bottom: 8px; font-size: 12px; color: var(--muted); }
+.compare__range input { margin-left: 6px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line-strong); border-radius: 7px; padding: 3px 6px; color: var(--text); font-family: var(--mono); }
+.compare td { vertical-align: middle; }
+.compare__value { display: block; }
+.compare__bar { display: block; height: 3px; margin-top: 4px; background: rgba(255, 255, 255, 0.06); border-radius: 2px; }
+.compare__bar span { display: block; height: 100%; border-radius: 2px; background: var(--faint); }
+.compare td.is-best .compare__bar span { background: var(--sun); }
+
+/* Texture streaming after the Moon is up: a quiet chip under the top controls */
+.loading-bar {
+  position: absolute; left: 50%; top: 132px; transform: translateX(-50%); z-index: 3;
+  display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 99px;
+  background: var(--panel); border: 1px solid var(--line-strong); backdrop-filter: blur(10px);
+  font-size: 12px; color: var(--muted); pointer-events: none;
+}
+.loading-bar__track { width: 72px; height: 3px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.loading-bar__track span { display: block; height: 100%; background: var(--sun); transition: width 0.3s ease; }
+
+/* Start screen: covers everything until the Moon is on screen, then fades away */
+.intro { position: fixed; inset: 0; z-index: 50; background: #000; transition: opacity 0.9s ease; }
+.intro.is-done { opacity: 0; } /* still catches clicks while fading, so none lands on the Moon */
+.intro canvas { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s ease; }
+.intro.is-live canvas { opacity: 1; }
+.intro__titles {
+  position: absolute; left: clamp(16px, 5vw, 64px); bottom: clamp(88px, 14vh, 140px);
+  display: grid; gap: 6px; max-width: min(560px, calc(100vw - 32px)); pointer-events: none;
+  animation: intro-in 1.6s ease both;
+}
+.intro__titles h1 { font-size: clamp(24px, 4vw, 40px); font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.intro__titles p { color: var(--muted); margin: 0; font-size: 15px; }
+.intro__distance { color: var(--sun); font: 13px var(--mono); min-height: 1.2em; }
+.intro__foot {
+  position: absolute; left: clamp(16px, 5vw, 64px); right: clamp(16px, 5vw, 64px); bottom: clamp(24px, 5vh, 48px);
+  display: flex; align-items: center; gap: 12px;
+}
+.intro__track { flex: 0 1 240px; height: 2px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.intro__track span { display: block; height: 100%; background: var(--sun); transition: width 0.4s ease; }
+.intro__foot small { color: var(--faint); font: 12px var(--mono); }
+.intro__lang { margin-left: auto; font: 12px var(--mono); }
+@keyframes intro-in { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) {
+  .intro__titles { animation: none; }
+}
+
+
+/* Standing at the site: a clean frame (no side panels, no LUNA) and a small toolbar. */
+.app.is-ground .site-picker, .app.is-ground .brand, .app.is-ground .luna, .app.is-ground .compare,
+.app.is-ground .stage-controls, .app.is-ground .loading-bar { display: none; }
+.ground-hud {
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 4;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  animation: luna-greet-in 0.4s ease both;
+}
+.ground-hud__bar {
+  display: flex; align-items: center; gap: 8px; padding: 5px 5px 5px 16px; border-radius: 99px;
+  background: var(--panel); border: 1px solid var(--line-strong); backdrop-filter: blur(10px);
+}
+.ground-hud__title { font-weight: 600; font-size: 13px; margin-right: 4px; white-space: nowrap; }
+.ground-hud__hint { font-size: 12px; text-shadow: 0 1px 6px #000; text-align: center; }
+.ground-hud button { padding: 6px 12px; font-size: 12.5px; white-space: nowrap; }
+@media (min-width: 961px) { .ground-hud { left: calc(16px + 290px + 16px); right: calc(16px + 390px + 16px); transform: none; } }
+.site-panel__actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+.site-panel__actions button { padding: 6px 12px; font-size: 13px; white-space: nowrap; }
+.ground-enter { font-weight: 600; }
+
+/* Mission report: hidden on screen, the only thing on paper. Light theme, one accent. */
+.month__buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+.month__buttons button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 10px; white-space: nowrap; }
+.button-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.85; }
+.print-report { display: none; }
+@media print {
+  @page { size: A4; margin: 14mm; }
+  body > *:not(.print-report) { display: none !important; }
+  html, body { background: #fff !important; height: auto; overflow: visible; }
+  .print-report { display: block; }
+}
+.print-report {
+  --text: #14161a; --muted: #4a4f57; --faint: #7a808a; --line: #dfe2e6; --line-strong: #c9cdd3;
+  --terrain: #d9dce1; --terrain-edge: #9aa0a8;
+  color: var(--text); background: #fff; font-size: 11pt; line-height: 1.45;
+}
+.print-report h1 { font-size: 22pt; margin: 2pt 0; }
+.print-report h2 { font-size: 11pt; margin: 14pt 0 6pt; text-transform: none; color: var(--text); }
+.report__kicker { color: #b7791f; font-size: 9pt; font-weight: 600; margin: 0; }
+.report__head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #f2a93b; padding-bottom: 8pt; }
+.report__head p { margin: 0; color: var(--muted); }
+.report__score { display: grid; justify-items: end; line-height: 1; }
+.report__score span { font-size: 9pt; color: var(--muted); }
+.report__score b { font: 700 34pt var(--mono); color: #b7791f; }
+.report__score small { color: var(--faint); font-family: var(--mono); }
+.report__meta { color: var(--muted); font-size: 9pt; margin: 6pt 0 0; }
+.report__factors { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10pt; margin-top: 12pt; }
+.report__factors div { display: grid; grid-template-columns: 1fr auto; gap: 3pt; }
+.report__factors span { color: var(--muted); font-size: 9pt; }
+.report__factors b { font-family: var(--mono); font-size: 10pt; }
+.report__factors i { grid-column: 1 / -1; height: 4pt; background: var(--line); border-radius: 2pt; overflow: hidden; }
+.report__factors em { display: block; height: 100%; background: #f2a93b; }
+.report__cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18pt; }
+.print-report table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+.print-report th, .print-report td { text-align: left; padding: 4pt 0; border-bottom: 1px solid var(--line); font-weight: 400; }
+.print-report td { text-align: right; font-family: var(--mono); }
+.report__note { color: var(--faint); font-size: 8.5pt; margin: 4pt 0 0; }
+.report__days { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8pt; padding: 0; list-style: none; margin: 0; }
+.report__days li { border: 1px solid var(--line-strong); border-radius: 6pt; padding: 6pt 8pt; display: grid; }
+.report__days span { font-size: 9pt; color: var(--muted); }
+.report__days b { font-family: var(--mono); color: #b7791f; }
+.report__horizon .horizon-chart { break-inside: avoid; }
+.report__horizon .track--sun { stroke: #d48a1e; opacity: 1; }
+.report__horizon .track--earth { stroke: #3d7be0; opacity: 0.9; }
+.report__horizon .terrain { fill: var(--terrain); stroke: var(--terrain-edge); }
+.report__sources ul { margin: 0; padding-left: 14pt; color: var(--muted); font-size: 9pt; }
+.report__sources p { color: var(--faint); font-size: 8.5pt; }
+
+/* Shorter screens: the right panel still fits without scrolling. The azimuth/terrain/clearance row
+   goes first (the horizon chart shows the same), then the chart legend. */
+@media (min-width: 961px) and (max-height: 880px) {
+  .site-panel .readout__grid { display: none; }
+}
+@media (min-width: 961px) and (max-height: 800px) {
+  .site-panel figcaption { display: none; }
+  .site-panel { gap: 8px; }
+  .score { row-gap: 8px; padding-top: 8px; }
+  .nasa-strip { padding-top: 5px; gap: 1px; line-height: 1.25; }
+  .month { padding-top: 8px; }
+  .month__actions { margin-top: 8px; }
+}
+/* Short laptop windows: the third line of each readout (panel output, distance) goes first, then
+   the month's extremes; the tool buttons always stay in view. */
+@media (min-width: 961px) and (max-height: 760px) {
+  .site-panel .readout__detail { display: none; }
+}
+@media (min-width: 961px) and (max-height: 680px) {
+  .site-panel .month__extremes { display: none; }
+  .site-panel { gap: 5px; }
+  .site-panel__actions { gap: 4px; }
+  .site-panel__actions button { padding: 4px 12px; }
+  .site-panel .readout { padding: 8px 10px; }
+  .site-panel .readout__big { margin: 4px 0 2px; }
+  .site-panel.panel { padding-top: 10px; padding-bottom: 10px; }
+  .month__buttons button { padding: 4px 2px; }
+}
+
+.report-dialog { width: min(420px, 100%); display: flex; flex-direction: column; gap: 12px; background: #0b0c0f; }
+.report-dialog h2 { font-size: 17px; }
+.report-dialog p { margin: 0; }
+.report-dialog__periods button { flex: 1; }
+.report-dialog__go { align-self: flex-end; padding: 8px 16px; }
+.report-dialog__how { font-size: 12px; }
+
+/* Spare height is shared evenly between the blocks (and below the last one), so the buttons follow
+   the month summary and nothing ends up crammed against the edge or floating over a gap. */
+@media (min-width: 961px) { .site-panel { justify-content: space-evenly; } }
+.month__actions { margin-top: 12px; }
+
+/* Four tools in one row: icon over label, so the panel keeps its height. */
+.month__buttons { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.month__buttons button { flex-direction: column; gap: 3px; padding: 7px 2px; font-size: 11.5px; }
+
+/* Everything drawn with the Moon, site labels included, stays under the panels. */
+.stage { z-index: 0; }
+.site-panel__refining { font-size: 11.5px; color: var(--sun); margin-top: 2px; }
+.readout__detail { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Shorter screens: the tool buttons keep their labels and drop the icons, the chart its legend. */
+@media (min-width: 961px) and (max-height: 880px) {
+  .month__buttons .button-icon, .site-panel figcaption { display: none; }
+  .month__buttons button { padding: 6px 2px; }
+}
+
+/* Tool windows */
+.tool-dialog { width: min(560px, 100%); max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #0b0c0f; }
+.tool-dialog h2 { font-size: 17px; }
+.tool-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.tool-label { font-size: 12.5px; color: var(--muted); }
+.tool-note { font-size: 12px; line-height: 1.45; }
+.tool-body { font-size: 13.5px; line-height: 1.5; }
+.tool-verdict { font-size: 13px; font-weight: 600; line-height: 1.45; }
+.tool-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.tool-fields label span { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tool-fields input, .tool-inline input, .report-dialog__manual input {
+  width: 100%; padding: 6px 8px; font-family: var(--mono); font-size: 12.5px; outline: none;
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line-strong); border-radius: 9px;
+}
+.tool-fields input:focus, .tool-inline input:focus { border-color: var(--sun); }
+.tool-inline { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--muted); }
+.tool-inline input { width: 72px; color: var(--text); }
+.tool-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0; border-top: 1px solid var(--line); padding-top: 10px; }
+.tool-tiles dt { font-size: 11px; color: var(--muted); }
+.tool-tiles dd { margin: 2px 0 0; font: 600 14px var(--mono); }
+
+/* Small charts: one line, one axis, the exact value on hover */
+.mini-chart { margin: 0; }
+.mini-chart__head { display: flex; justify-content: space-between; gap: 10px; margin: 0 0 4px; font-size: 12px; color: var(--text); }
+.mini-chart__head .mono { font-size: 11.5px; }
+.mini-chart svg { width: 100%; height: 84px; display: block; cursor: crosshair; background: rgba(255, 255, 255, 0.02); border-radius: 6px; }
+.mini-chart__line { fill: none; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.mini-chart__line--sun { stroke: var(--sun); }
+.mini-chart__line--earth { stroke: var(--earth); }
+.mini-chart__reference { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.mini-chart__cursor { stroke: var(--text); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.mini-chart__note { font-size: 11px; margin-top: 3px; }
+
+/* What if */
+.what-if { width: min(620px, 100%); }
+.what-if-tabs button { flex: 1; }
+.what-if-charts { display: grid; gap: 12px; }
+.what-if-map { display: grid; gap: 2px; }
+.what-if-cell {
+  aspect-ratio: 1.5; border: 0; border-radius: 4px; padding: 0; cursor: pointer; color: var(--text);
+  font: 500 11px var(--mono); background: color-mix(in srgb, var(--sun) calc(var(--share) * 75%), #15171b);
+}
+.what-if-cell:disabled { cursor: progress; }
+.what-if-cell:hover:not(:disabled) { outline: 2px solid var(--text); outline-offset: -2px; }
+.what-if-cell.is-centre { outline: 2px solid #fff; outline-offset: -2px; font-weight: 700; }
+.what-if-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.what-if-table th, .what-if-table td { padding: 6px 6px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.what-if-table thead th { color: var(--faint); font-weight: 500; font-size: 11px; }
+.what-if-table th:first-child { text-align: left; font-weight: 500; }
+.what-if-table .link-button:hover { color: var(--sun); }
+.what-if-add { color: var(--sun); font-size: 12px; }
+.what-if-add:disabled { color: var(--faint); cursor: default; }
+
+/* Mission requirements beside the month, so neither needs scrolling */
+.calendar { width: min(860px, 100%); overflow-y: auto; }
+.calendar__body { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 14px; align-items: start; }
+.calendar__month { display: flex; flex-direction: column; gap: 8px; }
+.calendar__body .tool-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.calendar .day-cell { padding: 4px 6px; }
+@media (max-width: 960px) { .calendar__body { grid-template-columns: minmax(0, 1fr); } }
+.mission-filter { border: 1px solid var(--line); border-radius: 11px; padding: 10px 12px; }
+.mission-filter summary { cursor: pointer; font-size: 12.5px; font-weight: 600; }
+.mission-filter[open] summary { margin-bottom: 8px; }
+.mission-filter__summary { font-size: 12.5px; margin-top: 8px; }
+.mission-filter__list { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; font-size: 12px; }
+.mission-filter__list li { display: flex; justify-content: space-between; gap: 10px; }
+.mission-filter__list .link-button { color: var(--sun); }
+.day-cell.is-fit { position: relative; }
+.day-cell.is-fit::after { content: ''; position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: #fff; }
+.cal-key--fit::before { background: #fff; border-radius: 50%; }
+
+/* Comparison with dates */
+.compare__date {
+  display: block; margin-top: 3px; padding: 1px 4px; font: 11px var(--mono); color: var(--muted);
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); border-radius: 6px;
+}
+.compare__date:hover, .compare__date:focus { border-color: var(--sun); outline: none; }
+.compare__slips { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 8px; font-size: 12px; }
+.compare__slips button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Report and data */
+.report-dialog { width: min(440px, 100%); }
+.report-dialog__periods { display: flex; }
+.report-dialog__actions { display: flex; justify-content: flex-end; gap: 8px; }
+.report-dialog__actions button { padding: 8px 14px; }
+.report-dialog__share { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; font-size: 12px; }
+.report-dialog__share p { font-size: 12px; }
+.report-dialog__manual { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+
+/* Accuracy */
+.validation__heading { margin: 16px 0 0; color: var(--text); font-size: 13px; }
+
+/* LUNA's game */
+.luna-quiz { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; font-size: 13.5px; }
+.luna-quiz h3 { margin: 0; color: var(--text); font-size: 15px; }
+.luna-quiz__question { font-weight: 600; line-height: 1.45; }
+.luna-quiz__options { display: grid; gap: 6px; }
+.luna-quiz__options button { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; white-space: normal; text-align: left; }
+.luna-quiz__score { font: 600 20px var(--mono); color: var(--sun); }
+
+@media (max-width: 960px) {
+  .tool-fields, .tool-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .what-if-table th, .what-if-table td { padding: 5px 3px; font-size: 11.5px; }
+  .what-if-table thead th { white-space: normal; font-size: 10.5px; }
+  .what-if-cell { font-size: 10px; }
+}
+
+/* LUNA lives above the page, so she can point at anything and stay over an open window. */
+/* Hidden she keeps her place in the layout: 3D LUNA takes over from exactly there. During the change GroundCompanion turns her and drives this burst of light. */
+.luna-launcher { position: relative; }
+.luna-launcher::after, .tour-bot::after {
+  content: ''; position: absolute; left: 50%; top: 42%; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%; pointer-events: none;
+  border: 2px solid var(--sun); box-shadow: 0 0 26px 8px rgba(255, 181, 71, 0.75), inset 0 0 22px 6px rgba(255, 181, 71, 0.55);
+  opacity: var(--luna-flash, 0); transform: scale(calc(0.35 + var(--luna-ring, 0) * 1.5));
+}
+.luna.is-hidden { visibility: hidden; }
+.luna.is-touring { z-index: 60; }
+.luna-panel { position: relative; z-index: 2; }
+body.tour-dialog .luna { left: 16px; right: auto; align-items: flex-start; }
+body.tour-dialog .modal-backdrop { place-items: center end; padding-right: 24px; }
+
+/* The robot: an alien on a saucer. One accent colour, as everywhere else. */
+.luna-launcher { width: 76px; height: 84px; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.6)); }
+.luna-launcher:hover { filter: drop-shadow(0 0 14px rgba(255, 181, 71, 0.55)); }
+.luna-head-bot { width: 38px; height: 42px; flex-shrink: 0; flex-grow: 0; }
+.luna-head-row > .luna-head-bot { flex: 0 0 38px; }
+.luna-bot { width: 100%; height: 100%; display: block; overflow: visible; --gx: 0px; --gy: 0px; }
+.bot-head { fill: #dfe3e8; }
+.bot-seam { fill: none; stroke: #aab0b8; stroke-width: 0.8; stroke-linecap: round; }
+.bot-neck { fill: #7c828b; }
+.bot-antenna { fill: none; stroke: #8b919a; stroke-width: 1.6; stroke-linecap: round; transform-box: view-box; transform-origin: 32px 10px; }
+.bot-tip { fill: var(--sun); stroke: none; filter: drop-shadow(0 0 3px var(--sun)); }
+.bot-eye-shape { fill: #0b0c0f; }
+.bot-pupil { fill: var(--sun); filter: drop-shadow(0 0 2px var(--sun)); transform: translate(var(--gx), var(--gy)); transition: transform 0.12s ease-out; }
+.bot-eye { transform-box: fill-box; transform-origin: center; animation: bot-blink 4.6s infinite; }
+.bot-mouth { fill: #4a4f57; transform-box: fill-box; transform-origin: center; }
+.bot-saucer { fill: #8b919a; }
+.bot-saucer-top { fill: #b5bac2; }
+.bot-light { fill: var(--sun); animation: bot-chase 1.5s infinite; }
+.bot-light:nth-of-type(2) { animation-delay: 0.5s; }
+.bot-light:nth-of-type(3) { animation-delay: 1s; }
+.bot-beam { fill: var(--sun); opacity: 0.1; animation: bot-glow 2.4s ease-in-out infinite; }
+.bot-body { animation: bot-hover 3.2s ease-in-out infinite; }
+.luna-bot.is-talk .bot-mouth { fill: var(--sun); animation: bot-talk 0.42s ease-in-out infinite; }
+.luna-bot.is-think .bot-tip { animation: bot-chase 0.6s infinite; }
+.luna-bot.is-think .bot-antenna { animation: bot-sway 0.9s ease-in-out infinite; }
+.luna-bot.is-wave .bot-body { animation: bot-wave 1.5s ease-in-out infinite; transform-origin: 50% 80%; transform-box: fill-box; }
+.luna-bot.is-happy .bot-body { animation: bot-jump 0.7s ease-in-out infinite; }
+.luna-bot.is-happy .bot-mouth { fill: var(--sun); }
+.luna-bot.is-sad .bot-body { transform: translateY(3px) rotate(-4deg); animation: none; transform-origin: 50% 80%; transform-box: fill-box; }
+.luna-bot.is-sad .bot-pupil { fill: #8b919a; filter: none; }
+.luna.is-arrived .luna-launcher, .luna.is-arrived .luna-launcher.is-waving { animation: luna-arrive 1s cubic-bezier(0.2, 0.9, 0.3, 1.15) both; }
+@keyframes bot-hover { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
+@keyframes bot-blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(0.08); } }
+@keyframes bot-chase { 0%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+@keyframes bot-glow { 0%, 100% { opacity: 0.06; } 50% { opacity: 0.2; } }
+@keyframes bot-talk { 0%, 100% { transform: scaleY(0.6); } 50% { transform: scaleY(2.6); } }
+@keyframes bot-sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@keyframes bot-wave { 0%, 60%, 100% { transform: rotate(0); } 15%, 45% { transform: rotate(-10deg); } 30% { transform: rotate(10deg); } }
+@keyframes bot-jump { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+
+/* LUNA flying around the page: the ring, the tractor beam and the robot itself */
+.luna > .luna-guide, .luna-guide * { pointer-events: none; }
+.tour-ring {
+  position: fixed; z-index: 1; border-radius: 12px; border: 2px solid #fff;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.52), 0 0 22px 4px rgba(255, 181, 71, 0.75);
+  transition: left 0.45s cubic-bezier(0.3, 0.8, 0.3, 1), top 0.45s cubic-bezier(0.3, 0.8, 0.3, 1), width 0.45s cubic-bezier(0.3, 0.8, 0.3, 1), height 0.45s cubic-bezier(0.3, 0.8, 0.3, 1);
+  animation: tour-ring-pulse 1.5s ease-in-out infinite;
+}
+.tour-ring.is-soft { box-shadow: 0 0 22px 4px rgba(255, 181, 71, 0.75); border-color: var(--sun); }
+.tour-beam {
+  position: fixed; z-index: 3; height: 44px; margin-top: -22px; transform-origin: 0 50%;
+  background: linear-gradient(90deg, rgba(255, 181, 71, 0.55), rgba(255, 181, 71, 0.08));
+  clip-path: polygon(0 44%, 100% 0, 100% 100%, 0 56%);
+  animation: tour-beam-in 0.7s ease-out both;
+}
+.tour-bot {
+  position: fixed; left: 0; top: 0; z-index: 4; width: 76px; height: 84px;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.6));
+  transition: transform 0.7s cubic-bezier(0.3, 0.9, 0.3, 1.05);
+}
+@keyframes tour-ring-pulse { 50% { border-color: var(--sun); } }
+@keyframes tour-beam-in { from { opacity: 0; } 50% { opacity: 0; } }
+.luna-fact { margin-top: 10px; padding: 8px 10px; border-left: 2px solid var(--sun); background: var(--sun-soft); border-radius: 0 8px 8px 0; color: var(--text) !important; font-size: 13px !important; font-weight: 600; }
+.luna-chips .luna-chips__game { border-color: var(--sun); color: var(--sun); }
+@media (prefers-reduced-motion: reduce) {
+  .bot-body, .bot-eye, .bot-light, .bot-beam, .bot-mouth, .bot-antenna, .tour-ring, .tour-beam { animation: none !important; }
+  .tour-bot, .tour-ring, .bot-pupil { transition: none; }
+}
+
+/* Mission commander */
+.game { display: flex; flex-direction: column; gap: 9px; font-size: 13.5px; line-height: 1.45; }
+.game h3 { margin: 0; color: var(--text); font-size: 16px; }
+.game-head { display: flex; justify-content: space-between; align-items: center; }
+.game-stars { font: 600 14px var(--mono); color: var(--sun); }
+.game-task { font-weight: 600; }
+.game-log { width: 100%; border-collapse: collapse; font-size: 13px; }
+.game-log th, .game-log td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: left; font-weight: 500; }
+.game-log td { text-align: right; white-space: nowrap; }
+.game-log thead th { color: var(--faint); font-size: 11px; }
+.game-log thead th:last-child { text-align: right; }
+.game-log tr.is-here th { color: var(--sun); }
+.game-log b { color: var(--text); font-size: 14px; }
+.game-action { padding: 4px 10px; font-size: 12px; font-weight: 600; }
+.game-pick { width: 100%; padding: 6px 10px; text-align: left; font-size: 13px; }
+.game-hint { font-size: 12.5px; }
+.game-hint .link-button { color: var(--muted); text-decoration: underline; }
+.game-hint p { padding: 6px 10px; border-left: 2px solid var(--line-strong); color: var(--muted); }
+.game-look { font-size: 12px; }
+.game-options { display: grid; gap: 6px; }
+.game-options button { padding: 8px 11px; white-space: normal; text-align: left; line-height: 1.35; }
+.game-options button:disabled { opacity: 0.45; }
+.game-verdict { font-weight: 700; }
+.game-now { padding: 7px 10px; background: rgba(255, 255, 255, 0.04); border-radius: 8px; font-size: 12.5px; }
+.game-earned { font-size: 22px; letter-spacing: 3px; color: var(--sun); }
+.game-earned span { color: var(--line-strong); }
+.game-rank { font-size: 24px !important; color: var(--sun) !important; font-weight: 700; }
+.game-rank-label { font-family: var(--mono); }
+.luna-head-bot .bot-beam { display: none; }
+
+/* Her panel moves aside so the Moon and the site stay in view during the tour and the game. */
+@media (min-width: 961px) {
+  .luna.is-left { left: 16px; right: auto; align-items: flex-start; }
+}
+
+/* LUNA's own glow is off while she flies: the tractor beam is the only light she shines. */
+.tour-bot .bot-beam, .luna-head-bot .bot-beam { display: none; }
+.tour-bot { padding: 0; border: 0; background: none; cursor: pointer; pointer-events: auto !important; }
+.bot-pupil { transition: none; }
+.tour-ring.is-pressing { border-color: var(--sun); box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.52), 0 0 0 5px var(--sun), 0 0 34px 10px rgba(255, 181, 71, 0.95); }
+.tour-ring.is-soft.is-pressing { box-shadow: 0 0 0 5px var(--sun), 0 0 34px 10px rgba(255, 181, 71, 0.95); }
+
+/* The tour's clock: it runs by itself, and shows how long this line stays */
+.tour-progress { height: 3px; margin-top: 12px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.tour-progress span { display: block; height: 100%; width: 100%; background: var(--sun); transform-origin: left; animation: tour-progress linear both; }
+.tour-progress span.is-paused { animation-play-state: paused; }
+@keyframes tour-progress { from { transform: scaleX(0); } }
+.luna-tour .luna-tour-nav button { padding: 5px 9px; font-size: 12.5px; }
+
+/* "More" replaces the conversation instead of squeezing it to nothing */
+.luna-chips.is-open { flex: 1; min-height: 0; overflow-y: auto; align-content: flex-start; }
+
+/* On the surface: arrows pointing the way to the Sun and the Earth */
+.ground-arrows { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+.ground-arrow {
+  position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; pointer-events: auto; cursor: pointer;
+  border-radius: 99px; background: rgba(10, 11, 14, 0.82); border: 1px solid currentColor; font: 600 12.5px var(--font); white-space: nowrap;
+}
+.ground-arrow svg { width: 15px; height: 15px; flex-shrink: 0; }
+.ground-arrow--sun { color: var(--sun); }
+.ground-arrow--earth { color: var(--earth); }
+.ground-arrow:hover { background: rgba(40, 42, 48, 0.95); }
+body.tour-dialog .tour-beam { background: linear-gradient(90deg, rgba(255, 181, 71, 0.3), rgba(255, 181, 71, 0.04)); }
+.luna-chips.is-open { gap: 5px; }
+.luna-chips.is-open button { padding: 4px 10px; }
+
+/* LUNA's panel on the left: solid, with the site list out of the way, so no text shows through */
+body.luna-on-left .site-picker { visibility: hidden; }
+.luna-panel.is-tour { background: #0b0c0f; }
+
+/* The flat robot gives way to the 3D one on the surface */
+.tour-bot { transition: transform 0.7s cubic-bezier(0.3, 0.9, 0.3, 1.05), opacity 0.5s ease; }
+.tour-bot.is-gone { opacity: 0; transition: transform 0.7s cubic-bezier(0.3, 0.9, 0.3, 1.05), opacity 0s; pointer-events: none !important; }
+
+/* Report and data: two equal buttons, then the link */
+.report-dialog__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.report-dialog__actions button { min-height: 42px; padding: 8px 12px; font-size: 13.5px; font-weight: 600; text-align: center; }
+.report-dialog__periods { display: grid; grid-template-columns: repeat(4, 1fr); }
+.report-dialog__how { margin-top: -4px; }
+.report-dialog__share { display: grid; gap: 6px; }
+.report-dialog__share button { min-height: 42px; width: 100%; font-weight: 600; }
+
+/* The open search */
+.game-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 13px; }
+.game-checks li { display: flex; gap: 8px; align-items: baseline; color: var(--muted); }
+.game-checks li span { font-family: var(--mono); }
+.game-checks li.is-ok { color: var(--text); font-weight: 600; }
+.game-checks li.is-ok span { color: var(--sun); }
+.game-hints { margin: 0; padding: 8px 10px; font-size: 12.5px; color: var(--muted); border-left: 2px solid var(--sun); background: var(--sun-soft); border-radius: 0 8px 8px 0; }
+.game-help { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; }
+.game-help .link-button { color: var(--muted); text-decoration: underline; }
+.game-help .game-rescue { color: var(--sun); font-weight: 600; }
+.luna-panel.is-tour { max-height: calc(100vh - 110px); overflow-y: auto; }
+
+/* 3D LUNA talking on the surface */
+.ground-bubble {
+  display: block; width: max-content; max-width: 340px; padding: 10px 14px; cursor: pointer; text-align: left;
+  border-radius: 14px; border: 1px solid var(--sun); background: rgba(10, 11, 14, 0.92); color: var(--text);
+  font: 500 14px/1.4 var(--font); transform: translate(44px, -50%); animation: bubble-in 0.35s ease both;
+}
+.ground-bubble:hover { background: #17191e; }
+@keyframes bubble-in { from { opacity: 0; } }
+
+/* What you can ask her on the surface */
+.ground-talk { width: 340px; transform: translate(20px, -50%); display: flex; align-items: flex-end; height: 0; }
+.ground-talk .ground-bubble { transform: none; }
+.ground-menu { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; width: max-content; transform: translateY(-50%); }
+.ground-menu button {
+  padding: 5px 10px; border-radius: 99px; cursor: pointer; font: 500 12.5px var(--font); color: var(--text);
+  background: rgba(10, 11, 14, 0.92); border: 1px solid var(--line-strong);
+}
+.ground-menu button:hover { border-color: var(--sun); color: var(--sun); }
+/* The click area over 3D LUNA: invisible, about the size she appears */
+.ground-invite { position: relative; transform: translateY(-50%); animation: bubble-in 0.35s ease both; }
+.ground-invite__label {
+  position: relative; display: block; width: max-content; padding: 7px 13px; border: 1px solid var(--sun); border-radius: 99px; cursor: pointer;
+  background: #0b0c0f; color: var(--sun); font: inherit; font-size: 13px; font-weight: 600; animation: ground-invite-nudge 1.8s ease-in-out infinite;
+}
+.ground-invite__label::before { content: ''; position: absolute; left: -6px; top: 50%; width: 9px; height: 9px; margin-top: -5px; border-left: 1px solid var(--sun); border-bottom: 1px solid var(--sun); background: #0b0c0f; transform: rotate(45deg); }
+.ground-invite__label:hover { background: var(--sun); color: #14100a; }
+.ground-invite__label:hover::before { background: var(--sun); }
+.ground-body { position: relative; width: calc(var(--luna-px, 190px) * 0.86); height: var(--luna-px, 190px); }
+.ground-invite__ring { position: absolute; left: 50%; top: 50%; width: calc(var(--luna-px, 190px) * 1.05); height: calc(var(--luna-px, 190px) * 1.05); translate: -50% -50%; border: 2px solid var(--sun); border-radius: 50%; pointer-events: none; visibility: hidden; animation: ground-invite-ring 1.8s ease-out infinite; }
+.ground-body.has-arrived .ground-invite__ring { visibility: visible; }
+@keyframes ground-invite-nudge { 50% { transform: translateX(5px); } }
+@keyframes ground-invite-ring { from { opacity: 0.7; transform: scale(0.82); } to { opacity: 0; transform: scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .ground-invite__label, .ground-invite__ring { animation: none; } .ground-invite__ring { opacity: 0.4; } }
+.ground-tap { display: block; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+
+/* ------- Phones: the Moon on top, one tab below ------- */
+.mobile-tabs, .ground-sheet-menu { display: none; }
+@media (max-width: 960px) {
+  .app { position: fixed; inset: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .stage { position: relative; top: auto; flex: none; height: 42dvh; }
+  .app.is-ground .stage { height: 58dvh; }
+  .hud { flex: 1; min-height: 0; display: block; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 10px 66px; gap: 0; background: var(--bg); }
+  .hud > * + * { margin-top: 10px; }
+  .brand { display: none; }
+  .app[data-tab='site'] .dock, .app[data-tab='site'] .site-picker { display: none; }
+  .app[data-tab='time'] .site-panel, .app[data-tab='time'] .compare, .app[data-tab='time'] .site-picker { display: none; }
+  .app[data-tab='list'] .site-panel, .app[data-tab='list'] .compare, .app[data-tab='list'] .dock { display: none; }
+  .app[data-tab='list'] .site-picker { display: flex; visibility: visible; }
+  .site-list { max-height: none; }
+
+  .mobile-tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: repeat(3, 1fr);
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); gap: 6px; background: #0b0c0f; border-top: 1px solid var(--line-strong);
+  }
+  .mobile-tabs button { min-height: 42px; border: 0; border-radius: 10px; background: none; color: var(--muted); font: 600 14px var(--font); cursor: pointer; }
+  .mobile-tabs button.is-active { background: var(--sun-soft); color: var(--sun); }
+  /* LUNA sits above the tab bar, and her greeting is solid so the panel text never shows through it. */
+  .luna { bottom: calc(66px + env(safe-area-inset-bottom)); }
+  .luna-greet { width: calc(100vw - 24px); max-width: 360px; box-sizing: border-box; background: #0b0c0f; backdrop-filter: none; }
+
+  /* Compact controls over the Moon */
+  .stage-controls { top: 8px; left: 8px; right: 8px; width: auto; transform: none; }
+  .stage-controls__row { gap: 5px; }
+  .altitude-chip, .pill-group > span { display: none; }
+  .view-toggle { padding: 6px 10px; font-size: 12px; }
+  .pill-group { padding: 3px; }
+  .pill-group button { padding: 3px 8px; font-size: 12px; }
+  .layer-note { position: static; transform: none; margin-top: 4px; white-space: normal; font-size: 11px; border-radius: 10px; }
+  .loading-bar { top: 84px; }
+
+  /* The panel reads like the desktop one: two cards side by side, no extra row */
+  .readouts { grid-template-columns: 1fr 1fr; row-gap: 0; }
+  .readout { padding: 9px; }
+  .readout__grid { display: none; }
+  .readout__big { font-size: 21px; }
+  .readout__detail { white-space: normal; }
+  .site-panel__head h2 { font-size: 17px; }
+  .month__extremes { white-space: normal; }
+  .compare th, .compare td { padding: 5px 4px; }
+
+  /* LUNA: the launcher above the tabs, her panel over whichever part is not being shown */
+  .luna, .luna.is-arrived { top: auto; left: auto; right: 10px; bottom: 66px; flex-direction: column; align-items: flex-end; }
+  .luna-launcher { width: 58px; height: 64px; }
+  .luna-panel { width: calc(100vw - 20px); height: auto; max-height: 56dvh; }
+  .luna.is-touring, .luna.is-left { top: 8px; left: 8px; right: 8px; bottom: auto; align-items: stretch; }
+  .luna.is-over-sheet { top: auto; bottom: 66px; }
+  .luna-panel.is-tour { width: 100%; max-height: 40dvh; padding: 10px; gap: 6px; }
+  .luna-panel.is-tour .luna-head-row { display: none; }
+  .luna-panel .luna-tour p { font-size: 13px; line-height: 1.4; }
+  .game { font-size: 13px; gap: 6px; }
+  .game-look { display: none; }
+  .tour-bot, .tour-beam { display: none; }
+  body.tour-dialog .luna { left: 8px; right: 8px; }
+  body.tour-dialog .modal-backdrop { place-items: end stretch; padding: 42dvh 0 0; }
+  body.tour-dialog .tool-dialog, body.tour-dialog .calendar { width: 100%; max-height: 58dvh; }
+
+  /* Windows */
+  .modal-backdrop { padding: 8px; }
+  .tool-dialog, .calendar { max-height: calc(100dvh - 16px); }
+  .what-if-table th:nth-child(5), .what-if-table td:nth-child(5) { display: none; }
+
+  /* On the surface */
+  .app.is-ground .site-panel__actions { display: none; }
+  .ground-hud { top: 8px; left: 8px; right: 8px; transform: none; }
+  .ground-hud__title, .ground-hud__hint { display: none; }
+  .ground-hud__bar { justify-content: center; flex-wrap: wrap; padding: 4px; gap: 4px; }
+  .ground-hud button { padding: 5px 9px; font-size: 12px; }
+  .ground-arrow { padding: 5px 9px; font-size: 11.5px; }
+  .ground-talk { width: 250px; transform: translate(0, -50%); }
+  .ground-bubble { max-width: 250px; padding: 8px 11px; font-size: 12.5px; }
+  .ground-menu { display: none; }
+  .ground-invite__label { font-size: 12px; padding: 5px 10px; }
+  .ground-sheet-menu { position: fixed; left: 8px; right: 8px; top: calc(58dvh - 112px); display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+  .ground-sheet-menu button { padding: 6px 10px !important; border-radius: 99px; cursor: pointer; font: 500 12px var(--font); color: var(--text); background: rgba(10, 11, 14, 0.92); border: 1px solid var(--line-strong); }
+}
+
+.ground-hud__when { gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 99px; background: rgba(11, 12, 15, 0.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.ground-hud .ground-hud__when button { padding: 5px 12px; border: 0; border-radius: 99px; background: transparent; color: var(--muted); font-weight: 500; transition: background 0.15s, color 0.15s; }
+.ground-hud .ground-hud__when button:hover { color: var(--text); }
+.ground-hud .ground-hud__when button.is-active { background: var(--sun); color: #14100a; font-weight: 600; }
+.site-panel__landing { display: block; margin-top: 3px; font-size: 12px; color: var(--sun); }
+
+.controls-hint {
+  position: absolute; left: 50%; bottom: 176px; transform: translateX(-50%); z-index: 12;
+  display: flex; align-items: flex-start; gap: 6px; padding: 12px 8px 12px 12px; border-radius: var(--radius);
+  background: var(--panel); border: 1px solid var(--line-strong); backdrop-filter: blur(10px);
+  animation: controls-hint-in 0.35s ease both;
+}
+@keyframes controls-hint-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.controls-hint ul { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, 128px); gap: 10px 8px; }
+.controls-hint li { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; font-size: 12px; line-height: 1.3; color: var(--text); }
+.controls-hint svg { width: 44px; height: 44px; overflow: visible; }
+.controls-hint__close { background: none; border: 0; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.controls-hint__close:hover { color: var(--text); }
+.controls-hint-toggle {
+  position: absolute; left: 50%; bottom: 176px; transform: translateX(-50%); z-index: 4;
+  width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--line-strong); color: var(--muted); font: 600 14px var(--font);
+}
+.controls-hint-toggle:hover { color: var(--sun); border-color: var(--sun); }
+.gesture-track, .gesture-line { fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.gesture-fill { fill: var(--sun); }
+.gesture-ripple { fill: none; stroke: var(--sun); stroke-width: 2; opacity: 0.6; }
+.gesture-slide { animation: gesture-slide 2.2s ease-in-out infinite; }
+.gesture-bob { animation: gesture-bob 1.8s ease-in-out infinite; }
+.gesture-spin { transform-box: view-box; transform-origin: 24px 24px; animation: gesture-spin 2.6s ease-in-out infinite; }
+.gesture-pinch-a { animation: gesture-pinch-a 1.8s ease-in-out infinite; }
+.gesture-pinch-b { animation: gesture-pinch-b 1.8s ease-in-out infinite; }
+@keyframes gesture-slide { 0%, 100% { transform: translateX(-6px); } 50% { transform: translateX(10px); } }
+@keyframes gesture-bob { 0%, 100% { transform: translateY(-7px); } 50% { transform: translateY(7px); } }
+@keyframes gesture-spin { 0%, 15% { transform: rotate(0); } 60%, 100% { transform: rotate(160deg); } }
+@keyframes gesture-pinch-a { 0%, 100% { transform: translate(3px, -3px); } 50% { transform: translate(-4px, 4px); } }
+@keyframes gesture-pinch-b { 0%, 100% { transform: translate(-3px, 3px); } 50% { transform: translate(4px, -4px); } }
+@media (prefers-reduced-motion: reduce) {
+  .gesture-slide, .gesture-bob, .gesture-spin, .gesture-pinch-a, .gesture-pinch-b { animation: none; }
+}
+@media (max-width: 760px) {
+  .controls-hint { bottom: 12px; width: calc(100vw - 32px); box-sizing: border-box; padding: 10px 6px 10px 10px; }
+  .controls-hint svg { width: 40px; height: 40px; }
+  .controls-hint-toggle { bottom: 12px; }
+  .controls-hint ul { grid-template-columns: repeat(2, 1fr); width: 100%; }
+}
+
+.gpu-notice {
+  position: absolute; left: 50%; top: 84px; transform: translateX(-50%); z-index: 30;
+  width: min(420px, calc(100vw - 32px)); padding: 16px; border-radius: var(--radius);
+  background: var(--panel); border: 1px solid var(--line-strong); backdrop-filter: blur(10px);
+  animation: controls-hint-in 0.35s ease both;
+}
+.gpu-notice strong { display: block; font-size: 15px; color: var(--text); }
+.gpu-notice p { margin: 6px 0 12px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.gpu-notice__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.gpu-notice__actions a { text-decoration: none; }
+
+/* NASA Moon Trek: one line under the site score, the orbital photo in its own dialog */
+.nasa-strip { grid-column: 1 / -1; display: grid; gap: 4px; font-size: 11.5px; padding-top: 8px; border-top: 1px solid var(--line); }
+.nasa-strip__row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.nasa-strip__values { display: flex; gap: 12px; color: var(--muted); white-space: nowrap; }
+.nasa-strip__values b { font: 600 12px var(--mono); color: var(--text); }
+.nasa-strip .link-button { font-size: 11.5px; color: var(--sun); white-space: nowrap; }
+.orbit { width: min(560px, 100%); }
+.orbit__frame { position: relative; flex-shrink: 0; align-self: center; width: min(100%, 52vh); aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: #000; }
+.orbit__frame canvas { display: block; width: 100%; height: 100%; }
+.orbit__ring { position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; transform: translate(-50%, -50%); border: 2px solid var(--sun); border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); }
+.orbit__scale { position: absolute; left: 14px; bottom: 14px; border-bottom: 2px solid #fff; color: #fff; font: 11px var(--mono); padding-bottom: 3px; white-space: nowrap; text-shadow: 0 0 4px #000; }
+.orbit__status { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; font-size: 12.5px; color: var(--muted); }
+.orbit__compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0; }
+.orbit__compare div { display: grid; gap: 4px; }
+.orbit__compare dt { font-size: 11.5px; color: var(--muted); }
+.orbit__compare dd { margin: 0; font: 600 26px var(--mono); color: var(--sun); }
+.orbit__compare div + div dd { color: var(--text); }
+.orbit__none { font: 500 13px var(--font, inherit); color: var(--muted); }
+.orbit__note { font-size: 12px; line-height: 1.5; margin: 0; }
+.orbit__credit { font-size: 11px; margin: 0; }
+.orbit__credit a { color: var(--sun); }
+.sources { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 10px; font-size: 12px; }
+.sources h4 { margin: 0 0 6px; font-size: 11.5px; font-weight: 500; color: var(--faint); }
+.sources ul { margin: 0; padding-left: 16px; display: grid; gap: 5px; line-height: 1.45; }
+.sources a { color: var(--sun); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* After the tour LUNA hands over: one clear button into the missions. */
+.luna-offer { margin-top: 10px; padding: 8px 16px; }
+
+/* The next thing worth trying: one quiet line above the "?" button, gone for good once done. */
+.next-tip {
+  position: absolute; left: 50%; bottom: 220px; transform: translateX(-50%); z-index: 6;
+  display: flex; align-items: center; gap: 10px; max-width: min(440px, calc(100vw - 32px));
+  padding: 10px 8px 10px 14px; border-radius: 999px;
+  background: var(--panel); border: 1px solid var(--line-strong); backdrop-filter: blur(10px);
+  animation: controls-hint-in 0.35s ease both;
+}
+.next-tip p { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--text); }
+.next-tip__pulse { position: relative; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--sun); }
+.next-tip__pulse::after { content: ''; position: absolute; inset: -5px; border-radius: 50%; border: 2px solid var(--sun); animation: next-tip-pulse 1.8s ease-out infinite; }
+@keyframes next-tip-pulse { from { opacity: 0.8; transform: scale(0.6); } to { opacity: 0; transform: scale(1.6); } }
+.next-tip__close { flex: none; background: none; border: 0; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 6px; }
+.next-tip__close:hover { color: var(--text); }
+@media (prefers-reduced-motion: reduce) { .next-tip__pulse::after { animation: none; } }
+@media (max-width: 960px) { .next-tip { bottom: 56px; border-radius: var(--radius); } }
+
+.orbit__frame { cursor: zoom-in; user-select: none; }
+.orbit__frame canvas { transition: opacity 0.2s; }
+.orbit__frame.is-switching canvas { opacity: 0.55; }
+.orbit__zoom { position: absolute; top: 12px; right: 12px; display: grid; gap: 6px; }
+.orbit__zoom button {
+  width: 34px; height: 34px; border-radius: 9px; cursor: pointer;
+  background: rgba(10, 11, 14, 0.78); border: 1px solid var(--line-strong); color: var(--text);
+  font: 600 18px/1 var(--font, inherit); backdrop-filter: blur(6px);
+}
+.orbit__zoom button:hover:not(:disabled) { border-color: var(--sun); color: var(--sun); }
+.orbit__zoom button:disabled { opacity: 0.35; cursor: default; }
+
+/* LUNA's own tip: a speech bubble from her button rather than a line over the Moon. */
+.next-tip--luna { position: fixed; left: auto; bottom: auto; transform: translateY(-50%); border-radius: var(--radius); max-width: 300px; animation: next-tip-luna-in 0.35s ease both; }
+.next-tip--luna::after { content: ''; position: absolute; right: -6px; top: 50%; width: 10px; height: 10px; background: var(--panel); border-right: 1px solid var(--line-strong); border-top: 1px solid var(--line-strong); transform: translateY(-50%) rotate(45deg); }
+@keyframes next-tip-luna-in { from { opacity: 0; transform: translate(8px, -50%); } to { opacity: 1; transform: translate(0, -50%); } }
+
+/* Timeline handle: a knob on the playhead that says "drag me", and the date it points at while dragging. */
+.timeline__track { position: relative; }
+.timeline__handle {
+  position: absolute; top: -6px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%;
+  background: #fff; box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.45); pointer-events: none;
+  transition: transform 0.12s ease;
+}
+.timeline__track:hover .timeline__handle, .timeline__track.is-dragging .timeline__handle { transform: scale(1.25); }
+.timeline__when {
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  padding: 3px 8px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line-strong);
+  font: 500 11px var(--mono); color: var(--text); white-space: nowrap; opacity: 0; transition: opacity 0.12s;
+}
+.timeline__track.is-dragging .timeline__when { opacity: 1; }
+/* The keyboard still gets a focus ring on the timeline; a mouse drag does not. */
+.timeline svg:focus:not(:focus-visible) { outline: none; }
+.jumps button { font-variant-numeric: tabular-nums; }
+
+/* Without the post-processing pass (lower graphics tiers) the vignette is drawn here, for a fraction of the cost. */
+.app[data-graphics='medium'] .stage::after, .app[data-graphics='low'] .stage::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+/* The flat map, for devices without 3D: it fills the middle column, between the panels. */
+.flat-map { position: absolute; top: 16px; bottom: 182px; left: 322px; right: 422px; display: flex; flex-direction: column; gap: 10px; }
+.flat-map__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px; }
+.flat-map__note { margin: 0; font-size: 12px; color: var(--muted); text-align: center; max-width: 520px; }
+.flat-map__frame { position: relative; flex: 1; min-height: 0; overflow: hidden; border-radius: 12px; cursor: crosshair; touch-action: none; user-select: none; }
+.flat-map__frame.is-dragging { cursor: grabbing; }
+.flat-map__frame img { position: absolute; display: block; max-width: none; pointer-events: none; will-change: transform; }
+.flat-map--pole .flat-map__frame img { border-radius: 50%; }
+/* The finer pole map fades in at its rim, so its edge never shows as a ring. */
+.flat-map__inner { -webkit-mask-image: radial-gradient(circle, #000 88%, transparent 100%); mask-image: radial-gradient(circle, #000 88%, transparent 100%); }
+.flat-map--globe .flat-map__frame img { border-radius: 8px; }
+.flat-map__pin { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6); pointer-events: none; }
+.flat-map__pin.is-primary { background: var(--sun); width: 14px; height: 14px; margin: -7px 0 0 -7px; }
+.flat-map__label { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); white-space: nowrap; font-size: 11.5px; padding: 2px 7px; border-radius: 6px; background: rgba(10, 11, 14, 0.8); border: 1px solid var(--line-strong); color: var(--text); }
+.flat-map__pin:not(.is-primary) .flat-map__label { color: var(--muted); }
+.flat-map__zoom { position: absolute; bottom: 10px; right: 10px; display: grid; gap: 6px; }
+.flat-map__zoom button {
+  width: 34px; height: 34px; border-radius: 9px; cursor: pointer;
+  background: rgba(10, 11, 14, 0.78); border: 1px solid var(--line-strong); color: var(--text);
+  font: 600 17px/1 var(--font, inherit); backdrop-filter: blur(6px);
+}
+.flat-map__zoom button:hover:not(:disabled) { border-color: var(--sun); color: var(--sun); }
+.flat-map__zoom button:disabled { opacity: 0.35; cursor: default; }
+.flat-map__help { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); margin: 0; padding: 3px 10px; border-radius: 99px; background: rgba(10, 11, 14, 0.7); font-size: 11.5px; color: var(--muted); white-space: nowrap; pointer-events: none; }
+@media (max-width: 960px) { .flat-map { inset: 12px 12px 64px; } .flat-map__help { display: none; } }

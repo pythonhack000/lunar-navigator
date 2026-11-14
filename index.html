@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Compare lunar landing sites and dates: see the Sun and Earth above the real LOLA terrain horizon, with power and direct-to-Earth communication windows." />
+    <meta name="theme-color" content="#000000" />
+    <title>Lunar Site Navigator</title>
+    <!-- Anonymous visit statistics (Umami, EU region, no cookies); counts only on the published site. -->
+    <script defer src="https://cloud.umami.is/script.js" data-website-id="05022feb-efbd-4bd6-9600-ce40cb7e0263" data-domains="pythonhack000.github.io"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      /* Painted before the 1.5 MB bundle arrives, so a slow link shows space, not a white page. */
+      html, body { margin: 0; background: #000; }
+      .boot { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 14px; padding: 0 64px 56px; color: #f2f2f2; font: 600 clamp(24px, 4vw, 40px) system-ui, sans-serif; }
+      .boot__track { width: 240px; max-width: 60vw; height: 2px; border-radius: 99px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+      .boot__track span { display: block; width: 30%; height: 100%; background: #ffb547; animation: boot 1.4s ease-in-out infinite; }
+      @keyframes boot { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+      @media (prefers-reduced-motion: reduce) { .boot__track span { animation: none; width: 100%; opacity: 0.4; } }
+    </style>
+  </head>
+  <body>
+    <div id="root"><div class="boot" aria-busy="true">Lunar Site Navigator<div class="boot__track"><span></span></div></div></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
